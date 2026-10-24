@@ -100,8 +100,9 @@
         <h2>Freelancer Profile</h2>
         <p class="hint">Complete this to start bidding and posting gigs.</p>
         <label>Profile Picture</label>
-        <input type="file" id="pfpFile" accept="image/*" onchange="uploadProfilePic()">
-        <div id="pfpStatus" class="hint"></div>
+<div id="pfpPreviewContainer" style="margin-bottom: 8px;"></div>
+<input type="file" id="pfpFile" accept="image/*" onchange="uploadProfilePic()">
+<div id="pfpStatus" class="hint"></div>
         <label>Category</label>
         <select id="profCategory">
           <option value="">Select Category</option><option>Writing</option><option>Design</option><option>Coding</option><option>Video</option><option>Marketing</option><option>Music</option><option>Data</option><option>Business</option><option>Lifestyle</option><option>AI</option><option>Translation</option><option>Admin Support</option>
@@ -113,8 +114,9 @@
         <label>Experience</label>
         <textarea id="profExp" rows="3" placeholder="Briefly describe your past work..."></textarea>
         <label>Upload CV / Resume (PDF)</label>
-        <input type="file" id="cvFile" accept=".pdf" onchange="uploadCV()">
-        <div id="cvStatus" class="hint"></div>
+<div id="cvPreviewContainer" style="margin-bottom: 8px;"></div>
+<input type="file" id="cvFile" accept=".pdf" onchange="uploadCV()">
+<div id="cvStatus" class="hint"></div>
         <h3>Bank Details (For Payouts)</h3>
         <p class="hint">Name must match your profile name.</p>
         <label>Select Bank</label>
@@ -228,7 +230,12 @@ async function loadSession() {
   document.getElementById('tClient').classList.toggle('active', state.role === 'client'); document.getElementById('tFree').classList.toggle('active', state.role === 'freelancer');
   document.getElementById('profCategory').value = state.profile?.category || '';
   document.getElementById('profSkills').value = state.profile?.skills || '';
-  document.getElementById('profEdu').value = state.profile?.education || '';
+  document.getElementById('profEdu').value = state.profile?.education || '';if (state.profile?.profilePic) {
+  document.getElementById('pfpPreviewContainer').innerHTML = `<img src="${state.profile.profilePic}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--p);">`;
+}
+if (state.profile?.cvUrl) {
+  document.getElementById('cvPreviewContainer').innerHTML = `<a href="${state.profile.cvUrl}" target="_blank" style="color: var(--p); font-size: 14px; font-weight: bold; text-decoration: underline;">📄 View Uploaded CV</a>`;
+  }
   document.getElementById('profExp').value = state.profile?.experience || '';
   document.getElementById('profAccount').value = state.profile?.accountNumber || '';
   await fetchBanks();
@@ -256,19 +263,27 @@ async function uploadFile(file, folder) {
   if (!response.ok) throw new Error('Upload failed');
   const data = await response.json();
   return data.secure_url; 
-    }
 
 
-window.uploadProfilePic = async () => {
+  window.uploadProfilePic = async () => {
   const file = document.getElementById('pfpFile').files[0]; if (!file) return;
   document.getElementById('pfpStatus').textContent = 'Uploading...';
-  try { state.tempUrls.pfp = await uploadFile(file); document.getElementById('pfpStatus').textContent = '✅ Uploaded'; }
+  try { 
+    state.tempUrls.pfp = await uploadFile(file); 
+    document.getElementById('pfpStatus').textContent = '✅ Uploaded'; 
+    document.getElementById('pfpPreviewContainer').innerHTML = `<img src="${state.tempUrls.pfp}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--p);">`;
+  }
   catch (e) { document.getElementById('pfpStatus').textContent = '❌ Error'; }
 };
+
 window.uploadCV = async () => {
   const file = document.getElementById('cvFile').files[0]; if (!file) return;
   document.getElementById('cvStatus').textContent = 'Uploading...';
-  try { state.tempUrls.cv = await uploadFile(file); document.getElementById('cvStatus').textContent = '✅ Uploaded'; }
+  try { 
+    state.tempUrls.cv = await uploadFile(file); 
+    document.getElementById('cvStatus').textContent = '✅ Uploaded'; 
+    document.getElementById('cvPreviewContainer').innerHTML = `<a href="${state.tempUrls.cv}" target="_blank" style="color: var(--p); font-size: 14px; font-weight: bold; text-decoration: underline;">📄 View Uploaded CV</a>`;
+  }
   catch (e) { document.getElementById('cvStatus').textContent = '❌ Error'; }
 };
 window.uploadGigCover = async () => {
