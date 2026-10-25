@@ -1474,13 +1474,17 @@ async function checkFlutterwaveRedirect() {
             const jobRef = await getDoc(doc(db, 'jobs', d.jobId)); 
              const jobData = jobRef.data(); 
             if (jobData && jobData.freelancerId) { 
-              const fSnap = await getFoc(doc(db, 'users' , jonData. freelanceeId)));
-                 if(fsnap.exists() && fSnap.data().phone) { sendSMS(fSnap.data().phone, `Domco: Client funded "${jobData.gigTitle}". Start working `);}
-               }
-             }  catch(e) {}
-          }
-       }
-   }
+              const fSnap = await getDoc(doc(db, 'users', jobData.freelancerId)); 
+              if(fSnap.exists() && fSnap.data().phone) { sendSMS(fSnap.data().phone, `Domco: Client funded "${jobData.gigTitle}". Start working!`); } 
+            } 
+          } catch(e) {} 
+
+          window.history.replaceState({}, document.title, window.location.pathname); await refreshData(); render(); 
+        } 
+      } catch (e) {} 
+    }
+  }
+  }
      // ==========================================
 // 12. UI RENDER ENGINE
 // ==========================================
