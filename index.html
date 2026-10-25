@@ -527,44 +527,54 @@ async function loadSession() {
   const snap = await getDoc(doc(db, 'users', state.user));
   state.profile = snap.exists() ? snap.data() : null;
   
-  // 🛡️ ADMIN BYPASS SHIELD 🛡️
   if (state.profile && state.profile.email === ADMIN_EMAIL) {
     state.profile.isVerified = true; 
   }
 
   if (!state.profile || !state.profile.isVerified) {
-    document.getElementById('mainApp').classList.add('hidden');
-    document.getElementById('authScreen').classList.remove('hidden');
-    document.getElementById('mainNav').classList.add('hidden');
-    document.getElementById('fabPost').classList.add('hidden');
-    return showErr('authErr', 'Your account is pending Admin NIN approval. Please check back later.');
+    document.getElementById('mainApp')?.classList.add('hidden');
+    document.getElementById('authScreen')?.classList.remove('hidden');
+    document.getElementById('mainNav')?.classList.add('hidden');
+    document.getElementById('fabPost')?.classList.add('hidden');
+    return showErr('authErr', 'Pending Admin approval.');
   }
 
   state.role = state.profile?.role || 'client';
-  document.getElementById('mainApp').classList.remove('hidden');
-  document.getElementById('mainNav').classList.remove('hidden');
-  document.getElementById('fabPost').classList.remove('hidden');
-  document.getElementById('logoutBtn').classList.remove('hidden'); 
-  document.getElementById('userPill').textContent = (state.profile?.firstName || 'User') + ' • ' + state.role; 
-  document.getElementById('userPill').classList.remove('hidden');
-  document.getElementById('profNameDisplay').textContent = state.profile?.firstName + ' ' + state.profile?.lastName;
-  document.getElementById('tClient').classList.toggle('active', state.role === 'client'); document.getElementById('tFree').classList.toggle('active', state.role === 'freelancer');
+  document.getElementById('mainApp')?.classList.remove('hidden');
+  document.getElementById('mainNav')?.classList.remove('hidden');
+  document.getElementById('fabPost')?.classList.remove('hidden');
+  document.getElementById('logoutBtn')?.classList.remove('hidden'); 
+  
+  const pill = document.getElementById('userPill');
+  if (pill) { pill.textContent = (state.profile?.firstName || 'User') + ' • ' + state.role; pill.classList.remove('hidden'); }
+  
+  const profName = document.getElementById('profNameDisplay');
+  if (profName) profName.textContent = state.profile?.firstName + ' ' + state.profile?.lastName;
+  
+  document.getElementById('tClient')?.classList.toggle('active', state.role === 'client'); 
+  document.getElementById('tFree')?.classList.toggle('active', state.role === 'freelancer');
   
   if (state.profile?.email === ADMIN_EMAIL) {
-    document.getElementById('tabAdmin').classList.remove('hidden');
+    document.getElementById('tabAdmin')?.classList.remove('hidden');
   }
 
-  document.getElementById('profCategory').value = state.profile?.category || '';
-  document.getElementById('profSkills').value = state.profile?.skills || '';
-  document.getElementById('profEdu').value = state.profile?.education || '';
-  document.getElementById('profExp').value = state.profile?.experience || '';
-  document.getElementById('profAccount').value = state.profile?.accountNumber || '';
+  const pCat = document.getElementById('profCategory'); if (pCat) pCat.value = state.profile?.category || '';
+  const pSkill = document.getElementById('profSkills'); if (pSkill) pSkill.value = state.profile?.skills || '';
+  const pEdu = document.getElementById('profEdu'); if (pEdu) pEdu.value = state.profile?.education || '';
+  const pExp = document.getElementById('profExp'); if (pExp) pExp.value = state.profile?.experience || '';
+  const pAcc = document.getElementById('profAccount'); if (pAcc) pAcc.value = state.profile?.accountNumber || '';
 
-  if (state.profile?.profilePic) document.getElementById('pfpPreviewContainer').innerHTML = `<img src="${state.profile.profilePic}" style="width: 100%; height: 100%; object-fit: cover;">`;
-  if (state.profile?.cvUrl) document.getElementById('cvPreviewContainer').innerHTML = `<a href="${state.profile.cvUrl}" target="_blank" style="color: var(--p); font-size: 14px; font-weight: bold; text-decoration: underline;">📄 View CV</a>`;
+  const pfpContainer = document.getElementById('pfpPreviewContainer');
+  if (pfpContainer && state.profile?.profilePic) pfpContainer.innerHTML = `<img src="${state.profile.profilePic}" style="width: 100%; height: 100%; object-fit: cover;">`;
+  
+  const cvContainer = document.getElementById('cvPreviewContainer');
+  if (cvContainer && state.profile?.cvUrl) cvContainer.innerHTML = `<a href="${state.profile.cvUrl}" target="_blank" style="color: var(--p); font-size: 14px; font-weight: bold; text-decoration: underline;">📄 View CV</a>`;
 
-  await fetchBanks(); await refreshData(); render(); await checkFlutterwaveRedirect();
-  }
+  await fetchBanks(); 
+  await refreshData(); 
+  render(); 
+  await checkFlutterwaveRedirect();
+    }
   async function uploadFile(file) {
   if (!file) throw new Error('No file');
   const formData = new FormData(); formData.append('file', file); formData.append('upload_preset', "ec5pvufi");
