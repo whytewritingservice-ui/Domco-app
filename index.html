@@ -445,14 +445,24 @@ if (localStorage.getItem('domcoDark') === '1') document.body.classList.add('dark
 
 window.setRole = (r) => { state.role = r; document.getElementById('tClient').classList.toggle('active', r === 'client'); document.getElementById('tFree').classList.toggle('active', r === 'freelancer'); render(); };
 window.showTab = (tab) => { 
-  ['browse','postJob','myGigs','profile','jobs','wallet','admin','messages'].forEach(t => { 
-    const cap = t.charAt(0).toUpperCase() + t.slice(1); 
-    const pane = document.getElementById('pane' + cap);
-    if (pane) pane.classList.toggle('hidden', t !== tab); 
-    const btn = document.getElementById('tab' + cap);
-    if (btn) btn.classList.toggle('active', t === tab); 
-  }); 
+  // 1. Hide all panes
+  document.querySelectorAll('[id^="pane"]').forEach(p => p.classList.add('hidden'));
+  
+  // 2. Show the selected pane
+  const cap = tab.charAt(0).toUpperCase() + tab.slice(1);
+  const targetPane = document.getElementById('pane' + cap);
+  if (targetPane) {
+    targetPane.classList.remove('hidden');
+  }
+
+  // 3. Update the active tab styling
+  document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
+  const targetBtn = document.getElementById('tab' + cap);
+  if (targetBtn) targetBtn.classList.add('active');
+
+  // 4. Load inbox data if needed
   if(tab === 'messages') renderInbox();
+};
 };
 const showErr = (id, msg) => { const el = document.getElementById(id); el.textContent = msg; el.classList.remove('hidden'); };
 const hideErr = id => document.getElementById(id).classList.add('hidden');
@@ -984,6 +994,9 @@ window.shareTo = (platform) => {
 }
 
 function render() {
+  // 🛡️ SAFETY SHIELD: If we aren't on the Browse page, don't crash
+  if(!document.getElementById('searchInput')) return;
+
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sort = document.getElementById('sortFilter').value;
   
@@ -995,11 +1008,15 @@ function render() {
   const urgentGigs = filtered.filter(g => g.boosted);
   const normalGigs = filtered.filter(g => !g.boosted);
 
-  document.getElementById('urgentArea').innerHTML = urgentGigs.map(g => `<div class="job-item sponsored">${g.coverImage ? `<img src="${g.coverImage}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;">` : ''}<div class="row"><div><strong>${escapeHtml(g.title)}</strong><div class="hint">${escapeHtml(g.freelancerName)} • ${g.days} days</div></div><div style="text-align:right"><div class="amount">₦${Number(g.price).toLocaleString()}</div><div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button class="btn btn-sm btn-ghost" onclick="openShareModal('${g.id}')"><i class="fas fa-share"></i></button><button class="btn btn-sm" onclick="hireNow('${g.id}')">Hire</button></div></div></div></div>`).join('');
+  const urgentEl = document.getElementById('urgentArea');
+  if (urgentEl) urgentEl.innerHTML = urgentGigs.map(g => `<div class="job-item sponsored">${g.coverImage ? `<img src="${g.coverImage}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;">` : ''}<div class="row"><div><strong>${escapeHtml(g.title)}</strong><div class="hint">${escapeHtml(g.freelancerName)} • ${g.days} days</div></div><div style="text-align:right"><div class="amount">₦${Number(g.price).toLocaleString()}</div><div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button class="btn btn-sm btn-ghost" onclick="openShareModal('${g.id}')"><i class="fas fa-share"></i></button><button class="btn btn-sm" onclick="hireNow('${g.id}')">Hire</button></div></div></div></div>`).join('');
 
-  document.getElementById('gigList').innerHTML = normalGigs.length ? normalGigs.map(g => `<div class="job-item">${g.coverImage ? `<img src="${g.coverImage}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;">` : ''}<div class="row"><div><strong>${escapeHtml(g.title)}</strong><div class="hint">${escapeHtml(g.freelancerName)} • ${g.days} days</div></div><div style="text-align:right"><div class="amount">₦${Number(g.price).toLocaleString()}</div><div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button class="btn btn-sm btn-ghost" onclick="openShareModal('${g.id}')"><i class="fas fa-share"></i></button><button class="btn btn-sm" onclick="hireNow('${g.id}')">Hire</button><button class="btn btn-sm btn-ghost" onclick="submitBid('${g.id}')">Bid</button></div></div></div></div>`).join('') : '<div class="empty"><i class="fas fa-search"></i><br>No gigs found.</div>';
+  const gigListEl = document.getElementById('gigList');
+  if (gigListEl) gigListEl.innerHTML = normalGigs.length ? normalGigs.map(g => `<div class="job-item">${g.coverImage ? `<img src="${g.coverImage}" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:10px;">` : ''}<div class="row"><div><strong>${escapeHtml(g.title)}</strong><div class="hint">${escapeHtml(g.freelancerName)} • ${g.days} days</div></div><div style="text-align:right"><div class="amount">₦${Number(g.price).toLocaleString()}</div><div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;"><button class="btn btn-sm btn-ghost" onclick="openShareModal('${g.id}')"><i class="fas fa-share"></i></button><button class="btn btn-sm" onclick="hireNow('${g.id}')">Hire</button><button class="btn btn-sm btn-ghost" onclick="submitBid('${g.id}')">Bid</button></div></div></div></div>`).join('') : '<div class="empty"><i class="fas fa-search"></i><br>No gigs found.</div>';
   
-  document.getElementById('myGigList').innerHTML = state.myGigs.length ? state.myGigs.map(g => `<div class="job-item"><strong>${escapeHtml(g.title)}</strong><div class="hint">₦${Number(g.price).toLocaleString()}</div><div id="bids_${g.id}" class="hint" style="margin-top:10px">Loading bids...</div></div>`).join('') : '<div class="empty">No gigs posted.</div>';
+  const myGigListEl = document.getElementById('myGigList');
+  if (myGigListEl) myGigListEl.innerHTML = state.myGigs.length ? state.myGigs.map(g => `<div class="job-item"><strong>${escapeHtml(g.title)}</strong><div class="hint">₦${Number(g.price).toLocaleString()}</div><div id="bids_${g.id}" class="hint" style="margin-top:10px">Loading bids...</div></div>`).join('') : '<div class="empty">No gigs posted.</div>';
+  
   if (state.myGigs.length) {
     state.myGigs.forEach(async g => {
       const bSnap = await getDocs(query(collection(db, 'bids'), where('gigId', '==', g.id)));
@@ -1009,7 +1026,8 @@ function render() {
     });
   }
 
-  document.getElementById('jobList').innerHTML = state.jobs.length ? state.jobs.map(j => { 
+  const jobListEl = document.getElementById('jobList');
+  if (jobListEl) jobListEl.innerHTML = state.jobs.length ? state.jobs.map(j => { 
     const isClient = j.clientId === state.user; const isFreelancer = j.freelancerId === state.user; let action = '';
     if (j.status === 'pending_deposit' && isClient) action = `<button class="btn btn-sm" onclick="fundJob('${j.id}')">Fund Escrow</button>`;
     if (j.status === 'funded' && isFreelancer) action = `<button class="btn btn-sm" onclick="markDelivered('${j.id}')">Mark Delivered</button>`;
@@ -1023,22 +1041,33 @@ function render() {
 
   const received = state.tx.filter(t => t.type === 'payout' || t.type === 'tip').reduce((s, t) => s + t.amount, 0);
   const inEscrow = state.jobs.filter(j => (j.status === 'funded' || j.status === 'delivered' || j.status === 'dispute')).reduce((s, j) => s + Number(j.amount || 0), 0);
-  document.getElementById('walletBal').textContent = received.toLocaleString(); 
-  document.getElementById('escrowBal').textContent = inEscrow.toLocaleString();
+  
+  const wb = document.getElementById('walletBal'); if(wb) wb.textContent = received.toLocaleString(); 
+  const eb = document.getElementById('escrowBal'); if(eb) eb.textContent = inEscrow.toLocaleString();
+  
   const refLinkEl = document.getElementById('myRefLink');
   if (refLinkEl) refLinkEl.value = `https://whytewritingservice-ui.github.io/Domco-app/?ref=${state.profile?.referralCode || ''}`;
   const refBalEl = document.getElementById('refBal');
   if (refBalEl) refBalEl.textContent = (state.profile?.walletBal || 0).toLocaleString();
-  document.getElementById('txList').innerHTML = state.tx.length ? state.tx.reverse().map(t => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(t.note || t.type)}</strong></div><div class="amount" style="color:${t.amount >= 0 ? '#16a34a' : '#dc2626'}">${t.amount >= 0 ? '+' : ''}₦${Number(Math.abs(t.amount)).toLocaleString()}</div></div></div>`).join('') : '<div class="empty">No transactions.</div>';
-    if (state.profile?.email === ADMIN_EMAIL) {
+  
+  const txEl = document.getElementById('txList');
+  if(txEl) txEl.innerHTML = state.tx.length ? state.tx.reverse().map(t => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(t.note || t.type)}</strong></div><div class="amount" style="color:${t.amount >= 0 ? '#16a34a' : '#dc2626'}">${t.amount >= 0 ? '+' : ''}₦${Number(Math.abs(t.amount)).toLocaleString()}</div></div></div>`).join('') : '<div class="empty">No transactions.</div>';
+
+  if (state.profile?.email === ADMIN_EMAIL) {
     const totalEscrow = state.allJobs.filter(j => j.status === 'funded' || j.status === 'delivered' || j.status === 'dispute').reduce((s, j) => s + Number(j.amount), 0);
     const totalProfit = state.allJobs.filter(j => j.status === 'paid').reduce((s, j) => s + (Number(j.amount) * 0.35), 0);
-    document.getElementById('adminEscrow').textContent = totalEscrow.toLocaleString();
-    document.getElementById('adminProfit').textContent = totalProfit.toLocaleString();
-    document.getElementById('adminJobList').innerHTML = state.allJobs.filter(j => j.status === 'dispute').map(j => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(j.gigTitle)}</strong><div class="hint">C: ${escapeHtml(j.clientName)} | F: ${escapeHtml(j.freelancerName)}</div></div><div style="text-align:right"><div class="amount">₦${Number(j.amount).toLocaleString()}</div><div style="margin-top:4px;"><button class="btn btn-sm" style="background:green;" onclick="showToast('Refunded to Client')">Refund</button><button class="btn btn-sm" style="background:blue; margin-left:4px;" onclick="showToast('Paid to Freelancer')">Release</button></div></div></div></div>`).join('') || '<div class="empty">No disputes.</div>';
-    document.getElementById('adminTxList').innerHTML = state.allTx.slice(0, 20).map(t => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(t.note)}</strong></div><div class="amount" style="color:${t.amount >= 0 ? '#16a34a' : '#dc2626'}">₦${Number(Math.abs(t.amount)).toLocaleString()}</div></div></div>`).join('');
-    document.getElementById('adminNINList').innerHTML = state.users.map(u => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</strong><div class="hint">NIN: ${u.nin} | <a href="${u.ninSlip}" target="_blank">View Slip</a></div></div><button class="btn btn-sm" onclick="approveNIN('${u.id}')">Approve</button></div></div>`).join('') || '<div class="empty">No pending NINs.</div>';
-    document.getElementById('adminUserList').innerHTML = state.users.map(u => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(u.firstName)}</strong><div class="hint">${escapeHtml(u.email)}</div></div><button class="btn btn-sm" style="background:red;" onclick="showToast('User Banned')">Ban</button></div></div>`).join('');
+    
+    const ae = document.getElementById('adminEscrow'); if(ae) ae.textContent = totalEscrow.toLocaleString();
+    const ap = document.getElementById('adminProfit'); if(ap) ap.textContent = totalProfit.toLocaleString();
+    
+    const ajl = document.getElementById('adminJobList'); if(ajl) ajl.innerHTML = state.allJobs.filter(j => j.status === 'dispute').map(j => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(j.gigTitle)}</strong><div class="hint">C: ${escapeHtml(j.clientName)} | F: ${escapeHtml(j.freelancerName)}</div></div><div style="text-align:right"><div class="amount">₦${Number(j.amount).toLocaleString()}</div><div style="margin-top:4px;"><button class="btn btn-sm" style="background:green;" onclick="showToast('Refunded to Client')">Refund</button><button class="btn btn-sm" style="background:blue; margin-left:4px;" onclick="showToast('Paid to Freelancer')">Release</button></div></div></div></div>`).join('') || '<div class="empty">No disputes.</div>';
+    
+    const atl = document.getElementById('adminTxList'); if(atl) atl.innerHTML = state.allTx.slice(0, 20).map(t => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(t.note)}</strong></div><div class="amount" style="color:${t.amount >= 0 ? '#16a34a' : '#dc2626'}">₦${Number(Math.abs(t.amount)).toLocaleString()}</div></div></div>`).join('');
+    
+    const anl = document.getElementById('adminNINList'); if(anl) anl.innerHTML = state.users.map(u => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</strong><div class="hint">NIN: ${u.nin} | <a href="${u.ninSlip}" target="_blank">View Slip</a></div></div><button class="btn btn-sm" onclick="approveNIN('${u.id}')">Approve</button></div></div>`).join('') || '<div class="empty">No pending NINs.</div>';
+    
+    const aul = document.getElementById('adminUserList'); if(aul) aul.innerHTML = state.users.map(u => `<div class="job-item"><div class="row"><div><strong>${escapeHtml(u.firstName)}</strong><div class="hint">${escapeHtml(u.email)}</div></div><button class="btn btn-sm" style="background:red;" onclick="showToast('User Banned')">Ban</button></div></div>`).join('');
+  }
   }
 }
 
