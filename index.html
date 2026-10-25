@@ -1232,6 +1232,16 @@ window.submitBid = async (gigId) => {
 };
 
 window.confirmBid = async (gigId) => {
+  // 1. Check the 10 Bids Per Week Limit
+  const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const bSnap = await getDocs(query(collection(db, 'bids'), where('clientId', '==', state.user)));
+  const recentBids = bSnap.docs.filter(d => new Date(d.data().createdAt?.toDate() || 0) > oneWeekAgo);
+  
+  if (recentBids.length >= 10) {
+    document.querySelector('.modal')?.remove();
+    return showToast('Limit Reached: You can only submit 10 bids per week.');
+  }
+
   const amount = parseInt(document.getElementById('bidAmount').value);
   const proposal = document.getElementById('bidProposal').value.trim();
   if(!amount || !proposal) return showToast('Fill all fields');
@@ -1244,7 +1254,7 @@ window.confirmBid = async (gigId) => {
   }); 
   
   document.querySelector('.modal')?.remove();
-  showToast('Bid submitted successfully!');
+  showToast(`Bid submitted! (${recentBids.length + 1}/10 this week)`);
 };
 
 window.acceptBid = async (bidId, gigId, clientId, clientName, amount, gigTitle) => {
@@ -1335,7 +1345,22 @@ window.approveDelivery = async (jobId) => {
     }, 1000);
   } catch (e) { if(btn) btn.textContent = 'Approve'; showToast('Error processing payout'); }
 };
+window.cancelJob = async (jobId) => {
+  if(!confirm('Are you sure you want to cancel this job?')) return;
+  await updateDoc(doc(db, 'jobs', jobId), { status: 'cancelled' });
+  await refreshData(); render(); showToast('Job cancelled.');
+};
 
+window.hireAgain = async (freelancerId, freelancerName, amount, gigTitle) => {
+  if (!confirm(`Hire ${freelancerName} again for ₦${Number(amount).toLocaleString()}?`)) return;
+  await addDoc(collection(db, 'jobs'), { 
+    gigId: 'rehire', gigTitle: gigTitle, amount: Number(amount), 
+    clientId: state.user, clientName: state.profile?.firstName || 'C', 
+    clientPic: state.profile?.profilePic || '', freelancerId: freelancerId, 
+    freelancerName: freelancerName, status: 'pending_deposit', createdAt: serverTimestamp() 
+  }); 
+  await refreshData(); render(); showTab('jobs'); showToast('Rehire job created!');
+};
 window.disputeJob = async (jobId) => { 
   await updateDoc(doc(db, 'jobs', jobId), { status: 'dispute' }); 
   await refreshData(); render(); showToast('Job disputed. Admin will review.'); 
@@ -1349,7 +1374,34 @@ window.approveNIN = async (uid) => {
 // ==========================================
 // 10. REAL-TIME CHAT, VOICE & VIDEO
 // ==========================================
-let currentChatJobId = null; 
+// Fix 4C: Background Message Listener for Notifications
+if (CONFIGURED) {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // Listen for unread messages not sent by me
+      const q = query(collection(db, 'messages'), where('read', '==', false), where('senderId', '!=', user.uid));
+      onSnapshot(q, (snapshot) => {
+        const inboxBtn = document.getElementById('tabMessages');
+        if (inboxBtn) {
+          if (snapshot.docs.length > 0) {
+            if(!inboxBtn.querySelector('.nav-badge')) {
+              const badge = document.createElement('span');
+              badge.className = 'nav-badge';
+              badge.textContent = snapshot.docs.length;
+              inboxBtn.appendChild(badge);
+            } else {
+              inboxBtn.querySelector('.nav-badge').textContent = snapshot.docs.length;
+            }
+          } else {
+            inboxBtn.querySelector('.nav-badge')?.remove();
+          }
+        }
+      });
+    }
+  });
+}
+
+let currentChatJobId = null;
 let unsubscribeChat = null; 
 let currentVideoRoom = ""; 
 let mediaRecorder; 
@@ -1374,6 +1426,12 @@ window.openChat = (jobId, otherName) => {
     const el = document.getElementById('chatMessages'); 
     el.scrollTop = el.scrollHeight;
   });
+
+  // Fix 4B: Mark messages as read when opening
+  const unreadQ = query(collection(db, 'messages'), where('jobId', '==', jobId), where('read', '==', false), where('senderId', '!=', state.user));
+  getDocs(unreadQ).then(snap => {
+    snap.forEach(d => updateDoc(doc(db, 'messages', d.id), { read: true }));
+  });
 };
 
 window.startVideoCall = () => { 
@@ -1390,15 +1448,20 @@ window.sendMessage = async () => {
   let t = i.value.trim(); 
   if (!t || !currentChatJobId) return; 
   
-  // Anti-scam filter
   t = t.replace(/(\+?234|0)[\s-]?[789]\d{2}[\s-]?\d{3}[\s-]?\d{4}/g, '[🚫 Phone hidden]')
        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[🚫 Email hidden]'); 
        
   i.value = ''; 
-  await addDoc(collection(db, 'messages'), { jobId: currentChatJobId, senderId: state.user, text: t, createdAt: serverTimestamp() }); 
+  await addDoc(collection(db, 'messages'), { 
+    jobId: currentChatJobId, 
+    senderId: state.user, 
+    text: t, 
+    read: false, // <--- THIS IS THE MAGIC LINE
+    createdAt: serverTimestamp() 
+  }); 
 };
-
-window.uploadChatFile = async (e) => { 
+  
+window.uploadChatFile = async (e) => {
   const f = e.target.files[0]; if (!f) return; 
   showToast('Uploading...'); 
   try { 
@@ -1602,8 +1665,8 @@ function render() {
     jl.innerHTML = state.jobs.length ? state.jobs.map(j => { 
       const ic = j.clientId === state.user; 
       const iff = j.freelancerId === state.user; 
-      let action = ''; 
-      if (j.status === 'pending_deposit' && ic) action = `<button class="btn btn-sm" onclick="fundJob('${j.id}')">Fund Escrow</button>`; 
+      let action = '';
+      if (j.status === 'paid') action = `<span class="hint">✓ Paid</span><button class="btn btn-sm btn-ghost" style="margin-left:4px;" onclick="leaveReview('${j.freelancerId}', '${j.id}')">⭐</button><button class="btn btn-sm" style="margin-left:4px; background:#16a34a;" onclick="hireAgain('${j.freelancerId}', '${j.freelancerName}', '${j.amount}', '${escapeHtml(j.gigTitle)}')">Hire Again</button>`; 
       if (j.status === 'funded' && iff) action = `<button class="btn btn-sm" onclick="markDelivered('${j.id}')">Mark Delivered</button>`; 
       if (j.status === 'delivered' && ic) action = `<button class="btn btn-sm" onclick="approveDelivery('${j.id}')">Approve</button>`; 
       if (j.status === 'dispute') action = `<span class="hint" style="color:red">In Dispute</span>`; 
