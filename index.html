@@ -515,11 +515,18 @@ async function signup() {
 }
 
 async function login() {
-  const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Logging in…';
-  try { await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); } 
-  catch (e) { $('loginErr').textContent = e.message; show('loginErr'); } 
-  finally { btn.disabled = false; btn.textContent = 'Log in'; }
-}
+  const btn = $('loginBtn'); 
+  btn.disabled = true; 
+  btn.textContent = 'Logging in…';
+  try { 
+    await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
+  } catch (e) { 
+    alert("LOGIN ERROR: " + e.message); // 👈 This will pop up a message!
+  } finally { 
+    btn.disabled = false; 
+    btn.textContent = 'Log in'; 
+  }
+  }
 
 async function forgotPass() {
   const email = prompt('Enter your email');
@@ -975,26 +982,34 @@ auth.onAuthStateChanged(async user => {
     const doc = await db.collection('users').doc(user.uid).get();
     state.profile = doc.exists ? doc.data() : null;
     
-    if (!state.profile) { showLanding(); return; }
-    if (state.profile.banned) { toast('Banned'); await auth.signOut(); return; }
+    if (!state.profile) { 
+      alert("ERROR: Logged in, but no user profile found in database.");
+      showLanding(); 
+      return; 
+    }
     
-    // 1. Open the app IMMEDIATELY (no waiting for Render)
+    if (state.profile.banned) { 
+      alert("ERROR: This account is banned.");
+      await auth.signOut(); 
+      return; 
+    }
+    
     hide('landing'); hide('authScreen'); show('mainApp');
     $('userPill').textContent = state.profile.role; 
     $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
     nav('browse');
     
-    // 2. Load data in the background (don't await)
     loadBanks().catch(err => console.log('Bank error:', err));
     loadGigs().catch(err => console.log('Gigs error:', err));
     
-    // 3. Check for Flutterwave redirect
     const txRef = new URL(window.location.href).searchParams.get('tx_ref');
     if (txRef && typeof verifyPayment === 'function') { 
       verifyPayment(txRef); 
       history.replaceState({}, '', window.location.pathname); 
     }
-  } catch (e) { toast(e.message); }
+  } catch (e) { 
+    alert("BOOT ERROR: " + e.message); // 👈 Catches database errors
+  }
 });
 showLanding();
 </script>
