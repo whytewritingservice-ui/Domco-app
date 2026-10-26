@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Domco Hub | Premium Escrow Marketplace</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p: #6D28D9; --b: #2563EB; --bg: #f8f7ff; --text: #111; --card: #fff; --border: #e5e7eb; 
+    --danger: #dc2626; --success: #16a34a; --warn: #f59e0b; --muted: #888;
+    --nav-bg: rgba(255, 255, 255, 0.95);
+  }
+  /* 🌙 DARK MODE */
+  body.dark {
+    --bg: #0f0f1a; --text: #eee; --card: #1a1a2e; --border: #2a2a3e; --muted: #aaa;
+    --nav-bg: rgba(26, 26, 46, 0.95);
+  }
+  /* 🎃 HALLOWEEN */
+  body.theme-halloween {
+    --p: #ea580c; --b: #7c2d12; --bg: #fff7ed; --card: #ffedd5;
+  }
+  body.dark.theme-halloween { --bg: #1c0f05; --card: #2e1608; }
+  /* 🎄 CHRISTMAS */
+  body.theme-christmas {
+    --p: #dc2626; --b: #166534; --bg: #f0fdf4; --card: #ffffff;
+  }
+  body.dark.theme-christmas { --bg: #021a0e; --card: #062b16; }
+  /* 🐣 EASTER */
+  body.theme-easter {
+    --p: #db2777; --b: #8b5cf6; --bg: #fdf2f8; --card: #fce7f3;
+  }
+  /* 🇳🇬 INDEPENDENCE */
+  body.theme-independence {
+    --p: #008751; --b: #006B3F; --bg: #f0fdf4; --card: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 85px; transition: background 0.3s, color 0.3s; }
+  
+  /* HEADER & NAV */
+  .header { background: linear-gradient(135deg, var(--p), var(--b)); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 99; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  .logo { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 6px; }
+  .logo span { background: #fff; color: var(--p); padding: 2px 8px; border-radius: 8px; }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .header-actions button { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  
+  .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--nav-bg); backdrop-filter: blur(15px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
+  .bottom-nav button { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; cursor: pointer; font-weight: 600; position: relative; }
+  .bottom-nav button.active { color: var(--p); }
+  .bottom-nav i { font-size: 22px; margin-bottom: 2px; }
+  
+  /* LAYOUT & CARDS */
+  .container { padding: 16px; max-width: 800px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin: 12px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  
+  /* FORMS & BUTTONS */
+  h2 { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
+  h3 { font-size: 15px; font-weight: 800; margin: 16px 0 8px; color: var(--p); }
+  label { display: block; font-size: 12px; margin: 12px 0 6px; color: var(--muted); font-weight: 600; }
+  input, select, textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--bg); color: var(--text); margin-bottom: 8px; font-family: 'Poppins', sans-serif; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--p); border-color: transparent; }
+  .btn { background: linear-gradient(135deg, var(--p), var(--b)); color: #fff; border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; width: 100%; margin-top: 8px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.6; }
+  .btn-ghost { background: transparent; border: 2px solid var(--p); color: var(--p); }
+  .btn-sm { padding: 8px 12px; font-size: 12px; width: auto; border-radius: 8px; }
+  .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+  
+  /* BADGES & TEXT */
+  .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+  .status-funded { background: #dbeafe; color: #1e40af; }
+  .status-paid { background: #dcfce7; color: #166534; }
+  .status-dispute { background: #fee2e2; color: #991b1b; }
+  .price { font-weight: 900; color: var(--p); font-size: 18px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  
+  /* MODALS & TOASTS */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+  .modal-box { width: 100%; max-width: 500px; background: var(--card); border-radius: 20px; padding: 24px; max-height: 90vh; overflow-y: auto; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: 0.3s; pointer-events: none; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(10px); }
+  
+  /* CHAT UI */
+  .chat-box { height: 55vh; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); }
+  .msg { padding: 12px 16px; border-radius: 16px; max-width: 85%; font-size: 14px; margin-bottom: 8px; word-break: break-word; position: relative; }
+  .msg.me { background: var(--p); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .msg.them { background: var(--card); color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+  .msg-time { font-size: 10px; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
+  
+  #bootError { position: fixed; top: 0; left: 0; right: 0; background: #c00; color: #fff; font: 11px monospace; padding: 6px; z-index: 99999; display: none; max-height: 40vh; overflow: auto; white-space: pre-wrap; }
+</style>
+  </head>
+  <body>
+<div id="bootError"></div>
+<div id="toast" class="toast"></div>
+<div id="modalRoot"></div>
+
+<!-- 1. LANDING PAGE -->
+<div id="landing" style="background:linear-gradient(135deg,var(--p),var(--b));min-height:100vh;color:#fff;padding:40px 20px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
+  <h1 style="font-size:40px;font-weight:900;margin-bottom:8px;">Domco Hub</h1>
+  <p style="font-size:16px;opacity:.9;margin-bottom:24px;">The Premium Escrow Marketplace.</p>
+  <div style="max-width:400px;margin:0 auto 32px;text-align:left;">
+    <div style="display:flex;gap:12px;align-items:center;margin:14px 0;"><i class="fas fa-shield-alt" style="font-size:20px;"></i><div><strong>Secure Escrow</strong><div style="font-size:12px;opacity:.8">Funds held safely</div></div></div>
+    <div style="display:flex;gap:12px;align-items:center;margin:14px 0;"><i class="fas fa-bolt" style="font-size:20px;"></i><div><strong>Instant Payouts</strong><div style="font-size:12px;opacity:.8">Withdraw anytime (₦100 min)</div></div></div>
+    <div style="display:flex;gap:12px;align-items:center;margin:14px 0;"><i class="fas fa-trophy" style="font-size:20px;"></i><div><strong>Domco Arena</strong><div style="font-size:12px;opacity:.8">Win competitions & prizes</div></div></div>
+  </div>
+  <button class="btn" style="background:#fff;color:var(--p);max-width:300px;margin:0 auto;" onclick="showAuth('signup')">Get Started 🚀</button>
+  <button class="btn" style="background:transparent;border:1px solid #fff;color:#fff;max-width:300px;margin:8px auto 0;" onclick="showAuth('login')">I already have an account</button>
+</div>
+
+<!-- 2. AUTH SCREEN -->
+<div id="authScreen" class="hidden">
+  <div class="container">
+    <div class="card" style="margin-top:40px;">
+      <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Back</button>
+      
+      <div id="authSignup">
+        <h2>Create account</h2>
+        <div class="grid-2">
+          <div><label>First name</label><input id="fName" placeholder="Dominion"></div>
+          <div><label>Last name</label><input id="lName" placeholder="Dolina"></div>
+        </div>
+        <label>Email</label><input id="email" type="email">
+        <label>Phone</label><input id="phone" type="tel">
+        <label>Password</label><input id="pass" type="password" placeholder="Min 6 chars">
+        <div class="grid-2">
+          <div><label>DOB (16+)</label><input id="dob" type="date"></div>
+          <div><label>Role</label><select id="roleSel"><option value="client">Client</option><option value="freelancer">Freelancer</option></select></div>
+        </div>
+        <label>NIN (11 digits)</label><input id="ninNum" maxlength="11">
+        <label>NIN Slip (image)</label><input type="file" id="ninFile" accept="image/*">
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px;"><input type="checkbox" id="terms" style="width:auto;"> I agree to Terms & NIN verification</label>
+        <div id="authErr" class="hidden" style="color:var(--danger);margin-top:8px;font-size:13px"></div>
+        <button class="btn" onclick="signup()" id="signupBtn">Create account</button>
+      </div>
+
+      <div id="authLogin" class="hidden">
+        <h2>Welcome back</h2>
+        <label>Email</label><input id="loginEmail" type="email">
+        <label>Password</label><input id="loginPass" type="password">
+        <div id="loginErr" class="hidden" style="color:var(--danger);margin-top:8px;font-size:13px"></div>
+        <button class="btn" onclick="login()" id="loginBtn">Log in</button>
+        <button class="btn btn-ghost" onclick="forgotPass()">Forgot password?</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. MAIN APP SHELL -->
+<div id="mainApp" class="hidden">
+  <div class="header">
+    <div class="logo"><span>DC</span>Domco</div>
+    <div class="header-actions">
+      <button onclick="toggleRole()"><i class="fas fa-sync-alt"></i> <span id="userPill">Role</span></button>
+      <button onclick="toggleDark()"><i class="fas fa-moon"></i></button>
+      <button onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- BROWSE PANE -->
+    <div id="paneBrowse" class="hidden">
+      <h2>Explore Services</h2>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input id="search" placeholder="Search..." oninput="renderGigs()" style="margin:0;">
+        <select id="sort" onchange="renderGigs()" style="margin:0;width:110px;"><option value="new">Newest</option><option value="low">₦ Low</option><option value="high">₦ High</option></select>
+      </div>
+      
+      <!-- Advanced Filters -->
+      <div class="grid-3" style="margin-bottom:12px;">
+        <select id="filterOnline" onchange="renderGigs()" style="margin:0;font-size:11px;padding:8px;"><option value="">Any Status</option><option value="online">Online Now</option></select>
+        <select id="filterTime" onchange="renderGigs()" style="margin:0;font-size:11px;padding:8px;"><option value="">Any Delivery</option><option value="1">24 Hours</option><option value="3">3 Days</option></select>
+        <button class="btn btn-ghost btn-sm" style="margin:0;font-size:11px;padding:8px;" onclick="openSavedGigs()"><i class="fas fa-heart"></i> Saved</button>
+      </div>
+
+      <div id="gigList"></div>
+    </div>
+
+    <!-- 🏆 ARENA PANE (New) -->
+    <div id="paneArena" class="hidden">
+      <h2>Domco Arena 🏆</h2>
+      <p class="muted" style="margin-bottom:16px;">Compete, win prizes, and prove your skills to the community.</p>
+      <div id="arenaList">
+        <div class="item card" style="text-align:center;">
+          <h3 style="color:var(--p);">Weekly Design Contest</h3>
+          <p class="muted">Design a logo for a local coffee shop. Prize: ₦10,000.</p>
+          <div style="font-size:12px;margin:8px 0;color:var(--danger);font-weight:bold;">Ends in 2 days</div>
+          <button class="btn btn-sm" onclick="toast('Arena submissions coming soon!')">Submit Entry</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- POST PANE -->
+    <div id="panePost" class="hidden">
+      <h2>Create</h2>
+      
+      <!-- Post Gig -->
+      <div class="card">
+        <h3>Post a Gig (Freelancer)</h3>
+        <label>Title</label><input id="gTitle" placeholder="I will design a professional logo">
+        <label>Category</label>
+        <select id="gCat">
+          <optgroup label="Tech"><option>Web Development</option><option>App Development</option><option>Data Entry</option></optgroup>
+          <optgroup label="Creative"><option>Logo Design</option><option>UI/UX</option><option>Video Editing</option></optgroup>
+          <optgroup label="Writing"><option>Content Writing</option><option>Copywriting</option><option>Translation</option></optgroup>
+        </select>
+        <label>Description</label><textarea id="gDesc" rows="3"></textarea>
+        <button class="btn btn-ghost btn-sm" onclick="aiWrite()" style="margin-bottom:8px;">✨ AI Write Description</button>
+        <label>Cover Image</label><input type="file" id="gCover" accept="image/*">
+        
+        <label>Portfolio Gallery (Max 3 images)</label>
+        <input type="file" id="gPortfolio" accept="image/*" multiple>
+        
+        <h3>Pricing</h3>
+        <div class="grid-2">
+          <div><label>Basic ₦</label><input id="gBasic" type="number" min="500"></div>
+          <div><label>Standard ₦</label><input id="gStd" type="number" min="500"></div>
+        </div>
+        <div class="grid-2">
+          <div><label>Premium ₦</label><input id="gPrem" type="number" min="500"></div>
+          <div><label>Delivery (days)</label><input id="gDays" type="number" min="1" value="3"></div>
+        </div>
+        
+        <label style="display:flex;gap:8px;align-items:center;background:#fff3cd;padding:12px;border-radius:8px;color:#856404;margin-top:12px;">
+          <input type="checkbox" id="gBoost" style="width:auto;"> 🔥 Boost this Gig (₦500)
+        </label>
+        <button class="btn" onclick="postGig()" id="postGigBtn">Publish Gig</button>
+      </div>
+
+      <!-- Post Job -->
+      <div class="card">
+        <h3>Post a Job (Client)</h3>
+        <label>Job Title</label><input id="jTitle" placeholder="Need an expert web developer">
+        <div class="grid-2">
+          <div><label>Budget ₦</label><input id="jBudget" type="number" min="500"></div>
+          <div><label>Days to deliver</label><input id="jDays" type="number" min="1" value="7"></div>
+        </div>
+        <div class="grid-2">
+          <div><label>Slots (How many hires?)</label><input id="jSlots" type="number" min="1" value="1"></div>
+          <div><label>Milestones?</label><select id="jMilestones"><option value="no">No (Single Payment)</option><option value="yes">Yes (Split Payment)</option></select></div>
+        </div>
+        <label>Brief (Instructions)</label><textarea id="jBrief" rows="3"></textarea>
+        <label style="display:flex;gap:8px;align-items:center;background:#fff3cd;padding:12px;border-radius:8px;color:#856404;">
+          <input type="checkbox" id="jUrgent" style="width:auto;"> 🔥 Urgent (₦500)
+        </label>
+        <button class="btn" onclick="postJob()" id="postJobBtn">Post Job</button>
+      </div>
+    </div>
+
+    <!-- MINE PANE -->
+    <div id="paneMyGigs" class="hidden">
+      <h2>My Dashboard</h2>
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div class="card" style="text-align:center;margin:0;padding:10px;"><div class="muted">Earnings</div><strong id="statEarnings" style="font-size:18px;color:var(--success);">₦0</strong></div>
+        <div class="card" style="text-align:center;margin:0;padding:10px;"><div class="muted">Active Jobs</div><strong id="statActive" style="font-size:18px;color:var(--p);">0</strong></div>
+      </div>
+      <h3>My Gigs</h3>
+      <div id="myGigsList"></div>
+      <h3 style="margin-top:24px;">My Jobs (Escrow)</h3>
+      <div id="myJobsList"></div>
+    </div>
+
+    <!-- CHAT PANE -->
+    <div id="paneChat" class="hidden">
+      <div id="chatInbox">
+        <h2>Inbox</h2>
+        <div id="chatList"><div class="empty">No conversations yet</div></div>
+      </div>
+      <div id="chatWindow" class="hidden">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <button class="btn btn-ghost btn-sm" onclick="closeChat()" style="width:auto;padding:6px 10px;">← Back</button>
+          <h3 id="activeChatName" style="margin:0;">User</h3>
+          <button class="btn btn-sm" onclick="startVideoCall()" style="margin-left:auto;width:auto;padding:6px 10px;"><i class="fas fa-video"></i></button>
+        </div>
+        <div id="chatMessages" class="chat-box"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <input id="chatInput" placeholder="Type a message..." style="margin:0;flex:1;" onkeypress="if(event.key==='Enter')sendMessage()">
+          <button id="sendBtn" class="btn" style="width:auto;margin:0;padding:0 14px;" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+          <button id="voiceBtn" class="btn" style="width:auto;margin:0;padding:0 14px;" onclick="toggleVoiceRecord()"><i class="fas fa-microphone"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE PANE -->
+    <div id="paneProfile" class="hidden">
+      <div class="card">
+        <h2>My Profile</h2>
+        <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;">
+          <div id="pfpBox" style="width:70px;height:70px;border-radius:50%;background:#ddd;background-size:cover;background-position:center;border:2px solid var(--p);"></div>
+          <div>
+            <h2 id="profName" style="margin:0;">—</h2>
+            <div id="profRole" class="muted">—</div>
+            <div id="profCompleteness" style="font-size:11px;color:var(--success);font-weight:bold;margin-top:4px;"></div>
+          </div>
+        </div>
+        
+        <label>Profile Picture</label><input type="file" id="pfpFile" accept="image/*">
+        <label>Skills (comma-sep)</label><input id="pSkills">
+        <label>Education</label><input id="pEdu">
+        <label>Experience</label><textarea id="pExp" rows="2"></textarea>
+        <label>CV (PDF)</label><input type="file" id="pCv" accept=".pdf">
+        
+        <h3>Bank Details</h3>
+        <label>Bank</label><select id="pBank"><option value="">Loading...</option></select>
+        <label>Account Number (10 digits)</label><input id="pAcct" maxlength="10">
+        <div id="pBankResolved" style="font-size:12px;color:var(--success);margin-top:4px;font-weight:bold;"></div>
+        
+        <button class="btn" onclick="saveProfile()" id="saveProfBtn">Save Profile</button>
+        
+        <h3 style="margin-top:24px;">Wallet</h3>
+        <div class="card" style="background:linear-gradient(135deg,var(--p),var(--b));color:#fff;margin-bottom:8px;">
+          <div style="font-size:12px;opacity:.8;">Available Balance</div>
+          <div id="walletBal" style="font-size:28px;font-weight:900;">₦0</div>
+        </div>
+        
+        <div class="grid-2">
+          <button class="btn btn-ghost" onclick="openWithdraw()">Withdraw</button>
+          <button class="btn" onclick="shareProfile()">Share Profile</button>
+        </div>
+        <button class="btn" style="background:#f59e0b;margin-top:8px;" onclick="shareReferral()">🎁 Copy Referral Link</button>
+        <button class="btn btn-ghost" style="margin-top:8px;" onclick="openSupportTicket()">🎟️ Support Ticket</button>
+      </div>
+    </div>
+
+    <!-- ADMIN PANE -->
+    <div id="paneAdmin" class="hidden">
+      <h2>Admin Dashboard 👑</h2>
+      
+      <!-- Seasonal Theme Controller -->
+      <div class="card" style="background:var(--border);">
+        <h3>App Theme Controller</h3>
+        <select id="adminTheme" onchange="changeTheme(this.value)">
+          <option value="default">Default (Purple/Blue)</option>
+          <option value="halloween">🎃 Halloween</option>
+          <option value="christmas">🎄 Christmas</option>
+          <option value="easter">🐣 Easter</option>
+          <option value="independence">🇳🇬 Independence</option>
+        </select>
+      </div>
+
+      <div class="grid-2">
+        <div class="card"><div class="muted">Total Escrow</div><div id="aEscrow" class="price">₦0</div></div>
+        <div class="card"><div class="muted">Platform Profit</div><div id="aProfit" class="price">₦0</div></div>
+        <div class="card"><div class="muted">Total Users</div><div id="aUsers" class="price">0</div></div>
+        <div class="card"><div class="muted">Total Jobs</div><div id="aJobs" class="price">0</div></div>
+      </div>
+      <button class="btn" onclick="loadAdmin()">Refresh Stats</button>
+      
+      <h3>Broadcast</h3>
+      <div class="card">
+        <input id="broadcastText" placeholder="Message to all users...">
+        <div class="grid-2" style="margin-top:8px;">
+          <button class="btn btn-ghost" onclick="broadcastInApp()">Send Text</button>
+          <button class="btn btn-ghost" id="adminVoiceBtn" onclick="recordAdminVoiceBroadcast()"><i class="fas fa-microphone"></i> Record Voice</button>
+        </div>
+      </div>
+
+      <h3>Dispute Center</h3>
+      <div id="aDisputes"><div class="empty">No active disputes</div></div>
+      
+      <h3>Support Tickets</h3>
+      <div id="aTickets"><div class="empty">No tickets</div></div>
+      
+      <h3>All Users (Ban)</h3>
+      <div id="aAllUsers"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button data-pane="browse" onclick="nav('browse')" class="active"><i class="fas fa-search"></i>Browse</button>
+    <button data-pane="arena" onclick="nav('arena')"><i class="fas fa-trophy"></i>Arena</button>
+    <button data-pane="post" onclick="nav('post')"><i class="fas fa-plus-circle"></i>Post</button>
+    <button data-pane="chat" onclick="nav('chat')"><i class="fas fa-comments"></i>Inbox</button>
+    <button data-pane="myGigs" onclick="nav('myGigs')"><i class="fas fa-briefcase"></i>Mine</button>
+    <button data-pane="profile" onclick="nav('profile')"><i class="fas fa-user"></i>Profile</button>
+    <button id="adminTab" data-pane="admin" onclick="nav('admin')" class="hidden"><i class="fas fa-crown"></i>Admin</button>
+  </nav>
+  </div>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+/* ================= CONFIG ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBAAtfdRcwmswgf2Rip1eh3ndP_FitlfdM",
+  authDomain: "domco-hub.firebaseapp.com",
+  projectId: "domco-hub",
+  storageBucket: "domco-hub.firebasestorage.app",
+  messagingSenderId: "1043662403866",
+  appId: "1:1043662403866:web:d99e1c1018c14a816814a3"
+};
+const BACKEND = "https://domco-backend.onrender.com"; 
+const CLOUD = "owgx72d6"; 
+const PRESET = "ec5pvufi"; 
+/* ========================================== */
+
+/* ========================================== */
+
+window.addEventListener('error', e => {
+  const b = document.getElementById('bootError');
+  if(b) { b.style.display = 'block'; b.textContent += '❌ ' + e.message + ' @ ' + e.lineno + ':' + e.colno + '\n'; }
+});
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const state = { user: null, profile: null, gigs: [], role: 'client', settings: {} };
+
+// ---- HELPERS ----
+function $(id) { return document.getElementById(id); }
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+function show(id) { $(id).classList.remove('hidden'); }
+function hide(id) { $(id).classList.add('hidden'); }
+function ngn(n) { return '₦' + Number(n || 0).toLocaleString(); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function openModal(html) { $('modalRoot').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()"><div class="modal-box">${html}</div></div>`; }
+function closeModal() { $('modalRoot').innerHTML = ''; }
+
+async function api(path, opts = {}) {
+  if (!auth.currentUser) throw new Error('Not signed in');
+  const token = await auth.currentUser.getIdToken();
+  const res = await fetch(BACKEND + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(opts.headers || {}) }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+async function uploadCloudinary(file, folder) {
+  if (!file) return null;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', PRESET);
+  fd.append('folder', folder);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/auto/upload`, { method: 'POST', body: fd });
+  const d = await res.json();
+  if (!d.secure_url) throw new Error('Upload failed');
+  return d.secure_url;
+}
+
+// ---- NAVIGATION & THEMES ----
+function showLanding() { show('landing'); hide('authScreen'); hide('mainApp'); }
+function showAuth(mode) {
+  hide('landing'); show('authScreen');
+  $('authSignup').classList.toggle('hidden', mode !== 'signup');
+  $('authLogin').classList.toggle('hidden', mode !== 'login');
+}
+function nav(pane) {
+  ['browse','arena','post','myGigs','chat','profile','admin'].forEach(p => {
+    const el = $('pane' + p.charAt(0).toUpperCase() + p.slice(1));
+    if(el) hide('pane' + p.charAt(0).toUpperCase() + p.slice(1));
+  });
+  show('pane' + pane.charAt(0).toUpperCase() + pane.slice(1));
+  document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
+  
+  if (pane === 'myGigs' && typeof loadMyThings === 'function') loadMyThings();
+  if (pane === 'admin' && typeof loadAdmin === 'function') loadAdmin();
+  if (pane === 'profile' && typeof renderProfile === 'function') renderProfile();
+  if (pane === 'browse' && typeof renderGigs === 'function') renderGigs();
+  if (pane === 'chat' && typeof loadChats === 'function') loadChats();
+}
+function toggleDark() { document.body.classList.toggle('dark'); }
+
+async function toggleRole() {
+  if (!state.profile) return;
+  const newRole = state.profile.role === 'client' ? 'freelancer' : 'client';
+  await db.collection('users').doc(state.user.uid).update({ role: newRole });
+  state.profile.role = newRole;
+  $('userPill').textContent = newRole;
+  toast('Switched to ' + newRole);
+}
+
+// Admin Theme Switcher
+async function changeTheme(theme) {
+  if (!state.profile?.isAdmin) return;
+  await db.collection('settings').doc('config').set({ activeTheme: theme }, { merge: true });
+  toast('Theme updated globally!');
+}
+
+// Listen for Global Theme Changes
+db.collection('settings').doc('config').onSnapshot(doc => {
+  if (doc.exists) {
+    const theme = doc.data().activeTheme;
+    document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+    if (theme && theme !== 'default') document.body.classList.add(`theme-${theme}`);
+    if($('adminTheme')) $('adminTheme').value = theme || 'default';
+  }
+});
+
+// ---- AUTHENTICATION ----
+function logout() { auth.signOut(); }
+
+async function signup() {
+  const btn = $('signupBtn'); btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    if ($('pass').value.length < 6) throw new Error('Password min 6 chars');
+    if (!/^\d{11}$/.test($('ninNum').value)) throw new Error('NIN must be 11 digits');
+    if (!$('terms').checked) throw new Error('Accept terms');
+    const age = (Date.now() - new Date($('dob').value).getTime()) / 31536000000;
+    if (!(age >= 16)) throw new Error('Must be 16+');
+
+    let ninUrl = '';
+    if ($('ninFile').files[0]) ninUrl = await uploadCloudinary($('ninFile').files[0], 'nin');
+
+    const cred = await auth.createUserWithEmailAndPassword($('email').value.trim(), $('pass').value);
+    await db.collection('users').doc(cred.user.uid).set({
+      first: $('fName').value.trim(), last: $('lName').value.trim(),
+      email: $('email').value.trim(), phone: $('phone').value.trim(),
+      dob: $('dob').value, role: $('roleSel').value,
+      nin: $('ninNum').value, ninSlipUrl: ninUrl,
+      ninApproved: false, banned: false, isAdmin: false,
+      walletBalance: 0, skills: '', education: '', experience: '',
+      bankCode: '', accountNumber: '', bankName: '', savedGigs: [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Account created — awaiting NIN approval');
+  } catch (e) { $('authErr').textContent = e.message; show('authErr'); } 
+  finally { btn.disabled = false; btn.textContent = 'Create account'; }
+}
+
+async function login() {
+  const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Logging in…';
+  try { await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); } 
+  catch (e) { $('loginErr').textContent = e.message; show('loginErr'); } 
+  finally { btn.disabled = false; btn.textContent = 'Log in'; }
+}
+
+async function forgotPass() {
+  const email = prompt('Enter your email');
+  if (!email) return;
+  try { await auth.sendPasswordResetEmail(email); toast('Reset email sent'); } catch (e) { toast(e.message); }
+}
+
+// ---- PROFILE ----
+async function loadBanks() {
+  try {
+    const banks = await api('/api/banks');
+    $('pBank').innerHTML = '<option value="">Select bank</option>' + banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
+  } catch (e) { console.log('Bank error', e); }
+}
+
+async function renderProfile() {
+  if (!state.profile) return;
+  const p = state.profile;
+  $('profName').textContent = (p.first || '') + ' ' + (p.last || '');
+  $('profRole').textContent = p.role;
+  if (p.pfpUrl) $('pfpBox').style.backgroundImage = `url(${p.pfpUrl})`;
+  $('pSkills').value = p.skills || ''; $('pEdu').value = p.education || ''; $('pExp').value = p.experience || '';
+  $('pBank').value = p.bankCode || ''; $('pAcct').value = p.accountNumber || '';
+  $('walletBal').textContent = ngn(p.walletBalance || 0);
+  
+  let complete = 20;
+  if (p.pfpUrl) complete += 20; if (p.cvUrl) complete += 20; if (p.skills) complete += 20; if (p.bankCode) complete += 20;
+  $('profCompleteness').textContent = complete + '% Complete';
+}
+
+async function saveProfile() {
+  const btn = $('saveProfBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const updates = { skills: $('pSkills').value, education: $('pEdu').value, experience: $('pExp').value };
+    if ($('pfpFile').files[0]) updates.pfpUrl = await uploadCloudinary($('pfpFile').files[0], 'pfp');
+    if ($('pCv').files[0]) updates.cvUrl = await uploadCloudinary($('pCv').files[0], 'cv');
+    
+    if ($('pBank').value && /^\d{10}$/.test($('pAcct').value)) {
+      const res = await api('/api/resolve-account', { method: 'POST', body: JSON.stringify({ account_number: $('pAcct').value, account_bank: $('pBank').value }) });
+      updates.bankCode = $('pBank').value; updates.accountNumber = $('pAcct').value; updates.bankName = res.account_name;
+      $('pBankResolved').textContent = '✅ ' + res.account_name;
+    }
+    await db.collection('users').doc(state.user.uid).update(updates);
+    state.profile = { ...state.profile, ...updates };
+    await renderProfile();
+    toast('Profile saved ✓');
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Save Profile'; }
+}
+
+function copyText(text) {
+  const temp = document.createElement("textarea"); temp.value = text;
+  document.body.appendChild(temp); temp.select(); document.execCommand("copy");
+  document.body.removeChild(temp); toast('✅ Link copied!');
+}
+function shareProfile() { copyText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); }
+function shareReferral() { copyText(`Join Domco Hub! Use code DOMCO-${state.user.uid.slice(0,4).toUpperCase()} https://whytewritingservice-ui.github.io/Domco-app/`); }
+
+// ---- APP BOOT ----
+auth.onAuthStateChanged(async user => {
+  if (!user) { state.user = null; state.profile = null; showLanding(); return; }
+  state.user = user;
+  try {
+    const doc = await db.collection('users').doc(user.uid).get();
+    state.profile = doc.exists ? doc.data() : null;
+    
+    if (!state.profile) { showLanding(); return; }
+    if (state.profile.banned) { toast('Account banned'); await auth.signOut(); return; }
+    
+    hide('landing'); hide('authScreen'); show('mainApp');
+    $('userPill').textContent = state.profile.role;
+    $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+    
+    nav('browse');
+    loadBanks();
+    
+    const txRef = new URL(window.location.href).searchParams.get('tx_ref');
+    if (txRef && typeof verifyPayment === 'function') { 
+      await verifyPayment(txRef); history.replaceState({}, '', window.location.pathname); 
+    }
+  } catch (e) { toast(e.message); }
+});
+
+showLanding();
+  </script>
+  // ---- GIGS & SEARCH ----
+async function loadGigs() {
+  try {
+    const snap = await db.collection('gigs').orderBy('createdAt', 'desc').limit(100).get();
+    state.gigs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderGigs();
+  } catch (e) { console.log('Load gigs error', e); }
+}
+
+function renderGigs() {
+  const q = ($('search')?.value || '').toLowerCase();
+  const sort = $('sort')?.value || 'new';
+  const onlineFilter = $('filterOnline')?.value || '';
+  const timeFilter = $('filterTime')?.value || '';
+
+  let list = state.gigs.filter(g => (g.title || '').toLowerCase().includes(q));
+  
+  if (timeFilter) list = list.filter(g => Number(g.days) <= Number(timeFilter));
+
+  if (sort === 'low') list.sort((a,b) => (a.basic || 0) - (b.basic || 0));
+  if (sort === 'high') list.sort((a,b) => (b.basic || 0) - (a.basic || 0));
+  
+  const el = $('gigList');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<div class="empty">No gigs found</div>'; return; }
+  
+  const saved = state.profile?.savedGigs || [];
+
+  el.innerHTML = list.map(g => `
+    <div class="item" style="position:relative;">
+      <i class="fas fa-heart" style="position:absolute;top:15px;right:15px;font-size:20px;color:${saved.includes(g.id) ? 'var(--danger)' : '#ccc'};cursor:pointer;z-index:10;" onclick="toggleSaveGig('${g.id}')"></i>
+      ${g.coverUrl ? `<img src="${esc(g.coverUrl)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ''}
+      <div style="font-weight:800;padding-right:25px;">${esc(g.title)}</div>
+      <div class="muted">${esc(g.category || '')} • by ${esc(g.freelancerName || 'Freelancer')}</div>
+      <div style="font-size:13px;margin:8px 0;">${esc((g.description||'').slice(0,80))}…</div>
+      <div class="price">${ngn(g.basic)}</div>
+      <div class="grid-2" style="margin-top:10px;">
+        <button class="btn btn-sm" onclick="hireGig('${g.id}')">Hire Now</button>
+        <button class="btn btn-sm btn-ghost" onclick="startChat('${g.freelancerId}', '${esc(g.freelancerName)}')">💬 Message</button>
+      </div>
+    </div>`).join('');
+}
+
+async function toggleSaveGig(gigId) {
+  let saved = state.profile.savedGigs || [];
+  if (saved.includes(gigId)) saved = saved.filter(id => id !== gigId);
+  else saved.push(gigId);
+  
+  await db.collection('users').doc(state.user.uid).update({ savedGigs: saved });
+  state.profile.savedGigs = saved;
+  renderGigs();
+  toast(saved.includes(gigId) ? 'Saved to favorites' : 'Removed from favorites');
+}
+
+async function postGig() {
+  const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    let cover = '';
+    if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
+    
+    // Portfolio Upload
+    let portfolio = [];
+    const pFiles = $('gPortfolio').files;
+    if (pFiles.length > 0) {
+      toast('Uploading portfolio...');
+      for(let i=0; i<Math.min(pFiles.length, 3); i++) {
+        const url = await uploadCloudinary(pFiles[i], 'portfolio');
+        if(url) portfolio.push(url);
+      }
+    }
+
+    const isBoosted = $('gBoost').checked;
+
+    await db.collection('gigs').add({
+      title: $('gTitle').value.trim(), category: $('gCat').value, description: $('gDesc').value.trim(),
+      basic: Number($('gBasic').value), standard: Number($('gStd').value), premium: Number($('gPrem').value),
+      days: Number($('gDays').value), coverUrl: cover, portfolio: portfolio,
+      freelancerId: state.user.uid, freelancerName: (state.profile.first || '') + ' ' + (state.profile.last || ''),
+      boosted: isBoosted, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Gig published!'); 
+    await loadGigs(); 
+    nav('browse');
+    
+    if (isBoosted) {
+      setTimeout(() => { fundEscrow('boost_' + Date.now(), 500, 'PLATFORM', 'Gig Boost Payment'); }, 1500);
+    }
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Publish Gig'; }
+}
+
+async function aiWrite() {
+  try {
+    toast('Generating…');
+    const d = await api('/api/generate-gig', { method: 'POST', body: JSON.stringify({ keywords: $('gTitle').value || $('gCat').value }) });
+    $('gDesc').value = d.text; toast('AI generated ✓');
+  } catch (e) { toast(e.message); }
+}
+
+async function postJob() {
+  const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
+  try {
+    await db.collection('jobs').add({
+      title: $('jTitle').value.trim(), budget: Number($('jBudget').value), days: Number($('jDays').value),
+      slots: Number($('jSlots').value), milestones: $('jMilestones').value,
+      brief: $('jBrief').value.trim(), urgent: $('jUrgent').checked,
+      status: 'open', clientId: state.user.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Job posted!'); await loadMyThings();
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Post Job'; }
+}
+
+// ---- ESCROW & PAYMENTS ----
+async function hireGig(gigId) {
+  const g = state.gigs.find(x => x.id === gigId); if (!g) return;
+  openModal(`
+    <h2>Hire — ${esc(g.title)}</h2>
+    <div class="price" style="margin:10px 0">${ngn(g.basic)}</div>
+    <p class="muted" style="margin-bottom:15px">Funds are held safely in Escrow until you approve delivery. 35% platform fee.</p>
+    <button class="btn" onclick="fundEscrow('${gigId}', ${g.basic}, '${esc(g.freelancerId)}', '${esc(g.title)}')">Pay ${ngn(g.basic)} via Flutterwave</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+async function fundEscrow(gigId, amount, freelancerId, title) {
+  try {
+    closeModal(); toast('Creating secure payment…');
+    const d = await api('/api/create-payment', { method: 'POST', body: JSON.stringify({ amount, purpose: 'escrow', gigId, extra: { freelancerId, title } }) });
+    window.location.href = d.paymentLink;
+  } catch (e) { toast(e.message); }
+}
+
+async function verifyPayment(txRef) {
+  try {
+    toast('Verifying payment...');
+    const d = await api('/api/verify-payment', { method: 'POST', body: JSON.stringify({ tx_ref: txRef }) });
+    if (d.status === 'success' && d.purpose === 'escrow' && !d.already) {
+      const meta = d.extra || {};
+      await db.collection('jobs').add({
+        title: meta.title || 'Escrow Job', amount: d.amount, gigId: d.gigId || '',
+        clientId: state.user.uid, freelancerId: meta.freelancerId, status: 'funded',
+        fundedAt: firebase.firestore.FieldValue.serverTimestamp(), createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Escrow funded ✓');
+    } else if (d.already) toast('Already verified');
+    await loadMyThings();
+  } catch (e) { toast(e.message); }
+}
+
+// ---- MY DASHBOARD & WALLET ----
+async function loadMyThings() {
+  try {
+    const gigsSnap = await db.collection('gigs').where('freelancerId', '==', state.user.uid).get();
+    $('myGigsList').innerHTML = gigsSnap.empty ? '<div class="empty">No gigs yet</div>' :
+      gigsSnap.docs.map(d => { const g = d.data(); return `
+        <div class="item"><div style="font-weight:800">${esc(g.title)}</div>
+        <div class="price">${ngn(g.basic)}</div>
+        <button class="btn btn-sm btn-danger" style="margin-top:8px; width:100%" onclick="if(confirm('Delete this gig?')) db.collection('gigs').doc('${d.id}').delete().then(()=>{toast('Gig deleted');loadMyThings();loadGigs();})">Delete Gig</button></div>`; 
+      }).join('');
+
+    const [asClient, asFree] = await Promise.all([
+      db.collection('jobs').where('clientId', '==', state.user.uid).get(),
+      db.collection('jobs').where('freelancerId', '==', state.user.uid).get()
+    ]);
+    const all = [...asClient.docs, ...asFree.docs].map(d => ({ id: d.id, ...d.data(), _asClient: d.data().clientId === state.user.uid }));
+    $('myJobsList').innerHTML = all.length ? all.map(j => `
+      <div class="item"><div style="font-weight:800">${esc(j.title)}</div>
+      <span class="badge status-${j.status}">${j.status}</span><div class="price">${ngn(j.amount)}</div>
+      ${j._asClient && j.status === 'funded' ? `<button class="btn btn-sm" style="margin-top:8px; width:100%" onclick="releaseEscrow('${j.id}')">Approve Delivery & Release Funds</button>` : ''}
+      </div>`).join('') : '<div class="empty">No jobs yet</div>';
+
+    let totalEarnings = 0;
+    all.forEach(j => { if (j.status === 'paid' && j.freelancerId === state.user.uid) totalEarnings += (j.amount * 0.65); });
+    $('statEarnings').textContent = ngn(totalEarnings);
+    $('statActive').textContent = all.filter(j => j.status === 'funded').length;
+
+  } catch (e) { toast(e.message); }
+}
+
+async function releaseEscrow(jobId) {
+  if(!confirm("Are you sure you want to release the funds? This cannot be undone.")) return;
+  try {
+    toast('Releasing funds...');
+    await api('/api/release-escrow', { method: 'POST', body: JSON.stringify({ jobId, tip: 0 }) });
+    toast('Funds released successfully ✓'); loadMyThings();
+  } catch(e) { toast(e.message); }
+}
+
+async function openWithdraw() {
+  openModal(`<h2>Withdraw</h2><label>Amount ₦</label><input id="wdAmt" type="number" min="100">
+    <label>Bank Code</label><input id="wdBank" placeholder="e.g. 058">
+    <label>Account Number</label><input id="wdAcct" maxlength="10">
+    <button class="btn" onclick="doWithdraw()">Withdraw</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`);
+}
+
+async function doWithdraw() {
+  try {
+    const r = await api('/api/withdraw-wallet', { method: 'POST', body: JSON.stringify({ amount: Number($('wdAmt').value), bankCode: $('wdBank').value, accountNumber: $('wdAcct').value }) });
+    closeModal(); toast(r.message || 'Withdrawal initiated'); loadMyThings();
+  } catch (e) { toast(e.message); }
+}
+ // ---- REAL-TIME CHAT ----
+function closeChat() { 
+  show('chatInbox'); 
+  hide('chatWindow'); 
+  if(window.chatUnsubscribe) window.chatUnsubscribe();
+}
+
+function startVideoCall() { 
+  toast('Opening secure video call...'); 
+  window.open('https://meet.jit.si/domco-'+state.user.uid, '_blank'); 
+}
+
+let currentChatId = null;
+
+async function startChat(otherUserId, otherName) {
+  if (otherUserId === state.user.uid) return toast("You cannot message yourself!");
+  try {
+    const chatId = [state.user.uid, otherUserId].sort().join('_');
+    await db.collection('chats').doc(chatId).set({
+      participants: [state.user.uid, otherUserId],
+      names: { [state.user.uid]: state.profile.first, [otherUserId]: otherName },
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    openChatRoom(chatId, otherName);
+  } catch(e) { toast('Chat error: ' + e.message); }
+}
+
+async function loadChats() {
+  try {
+    const snap = await db.collection('chats').where('participants', 'array-contains', state.user.uid).get();
+    if(snap.empty) { $('chatList').innerHTML = '<div class="empty">No conversations yet</div>'; return; }
+    
+    $('chatList').innerHTML = snap.docs.map(doc => {
+      const c = doc.data();
+      const otherId = c.participants.find(id => id !== state.user.uid);
+      const otherName = c.names[otherId] || 'User';
+      return `
+        <div class="item" onclick="openChatRoom('${doc.id}', '${esc(otherName)}')">
+          <div style="font-weight:800;font-size:16px;">${esc(otherName)}</div>
+          <div class="muted">${esc(c.lastMessage || 'Tap to start chatting')}</div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    $('chatList').innerHTML = '<div class="empty">Error loading chats. Check database index.</div>';
+    console.error(e);
+  }
+}
+
+async function openChatRoom(chatId, otherName) {
+  currentChatId = chatId;
+  hide('chatInbox'); show('chatWindow');
+  $('activeChatName').textContent = otherName;
+  $('chatMessages').innerHTML = '<div class="empty">Loading messages...</div>';
+
+  if(window.chatUnsubscribe) window.chatUnsubscribe();
+
+  window.chatUnsubscribe = db.collection('chats').doc(chatId).collection('messages')
+    .orderBy('createdAt', 'asc')
+    .onSnapshot(snap => {
+      if(snap.empty) { $('chatMessages').innerHTML = '<div class="empty">Say hello! 👋</div>'; return; }
+      
+      $('chatMessages').innerHTML = snap.docs.map(doc => {
+        const m = doc.data();
+        const isMe = m.senderId === state.user.uid;
+        const time = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+        
+        if(m.type === 'voice') {
+          return `<div class="msg ${isMe ? 'me' : 'them'}"><audio controls src="${m.audioUrl}" style="max-width:100%;height:40px;"></audio><span class="msg-time">${time}</span></div>`;
+        }
+        return `<div class="msg ${isMe ? 'me' : 'them'}">${esc(m.text)}<span class="msg-time">${time}</span></div>`;
+      }).join('');
+      
+      $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    });
+}
+
+async function sendMessage() {
+  const input = $('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentChatId) return;
+
+  // Anti-Scam Filter
+  const phoneRegex = /(\+?234|0)[789][01]\d{8}/g;
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  
+  if (phoneRegex.test(text) || emailRegex.test(text)) {
+    return toast('⚠️ Warning: Phone numbers and emails are not allowed in chat. Keep payments on Domco!');
+  }
+
+  input.value = '';
+  
+  try {
+    await db.collection('chats').doc(currentChatId).collection('messages').add({
+      text: text, senderId: state.user.uid, type: 'text',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('chats').doc(currentChatId).update({
+      lastMessage: text, lastSenderId: state.user.uid, unreadBy: currentChatId.split('_').find(id => id !== state.user.uid),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) { toast('Error sending: ' + e.message); }
+}
+
+// ---- VOICE NOTES ----
+let mediaRecorder;
+let audioChunks = [];
+
+async function toggleVoiceRecord() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    $('voiceBtn').style.background = 'var(--p)';
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+    
+    mediaRecorder.onstop = async () => {
+      toast('Uploading voice note...');
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const file = new File([audioBlob], "voice.webm", { type: 'audio/webm' });
+      
+      const url = await uploadCloudinary(file, 'voice_notes');
+      if (url) {
+        await db.collection('chats').doc(currentChatId).collection('messages').add({
+          audioUrl: url, senderId: state.user.uid, type: 'voice',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('chats').doc(currentChatId).update({
+          lastMessage: '🎤 Voice Note', lastSenderId: state.user.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    };
+
+    mediaRecorder.start();
+    $('voiceBtn').style.background = 'var(--danger)'; 
+    toast('Recording... tap mic again to stop.');
+  } catch (e) { toast('Microphone access denied.'); }
+}
+
+// ---- UNREAD BADGES ----
+function listenForMessages() {
+  if (!state.user) return;
+  db.collection('chats').where('participants', 'array-contains', state.user.uid).onSnapshot(snap => {
+    let unread = 0;
+    snap.forEach(doc => {
+      const chat = doc.data();
+      if (chat.lastMessage && chat.lastSenderId !== state.user.uid && chat.unreadBy === state.user.uid) {
+        unread++;
+      }
+    });
+    const inboxBtn = document.querySelector('button[data-pane="chat"]');
+    if (inboxBtn) {
+      if (unread > 0) {
+        inboxBtn.innerHTML = `<i class="fas fa-comments"></i>Inbox <span style="background:var(--danger);color:white;border-radius:50%;padding:2px 6px;font-size:10px;position:absolute;top:0;right:10px;">${unread}</span>`;
+      } else {
+        inboxBtn.innerHTML = `<i class="fas fa-comments"></i>Inbox`;
+      }
+    }
+  });
+}
+
+// ---- SUPPORT TICKETS ----
+function openSupportTicket() {
+  openModal(`
+    <h2>Contact Support</h2>
+    <p class="muted" style="margin-bottom:12px;">Describe your issue. Our team will reply in the app.</p>
+    <input id="ticketSubject" placeholder="Subject (e.g., Payment issue)">
+    <textarea id="ticketMsg" rows="3" placeholder="Explain what happened..."></textarea>
+    <button class="btn" onclick="submitTicket()">Submit Ticket</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+async function submitTicket() {
+  const subject = $('ticketSubject').value.trim();
+  const msg = $('ticketMsg').value.trim();
+  if(!subject || !msg) return toast('Fill all fields');
+  
+  try {
+    await db.collection('tickets').add({
+      userId: state.user.uid,
+      name: (state.profile.first || '') + ' ' + (state.profile.last || ''),
+      email: state.profile.email,
+      subject, msg, status: 'open',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeModal(); toast('Ticket submitted! Support will reach out.');
+  } catch(e) { toast(e.message); }
+}
+   // ---- ADMIN DASHBOARD ----
+async function loadAdmin() {
+  if (!state.profile?.isAdmin) return;
+  try {
+    const stats = await api('/api/admin-stats');
+    $('aEscrow').textContent = ngn(stats.escrow); $('aProfit').textContent = ngn(stats.profit);
+    $('aUsers').textContent = stats.totalUsers; $('aJobs').textContent = stats.totalJobs;
+
+    // 1. Active Jobs / Disputes
+    const jobsSnap = await db.collection('jobs').get();
+    const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed'].includes(d.data().status));
+    
+    $('aDisputes').innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' :
+      activeJobs.map(d => { const j = d.data(); return `<div class="item"><div style="font-weight:800">${esc(j.title)}</div>
+        <div class="muted">Status: ${j.status}</div>
+        <div class="price">${ngn(j.amount)}</div>
+        <button class="btn btn-sm" onclick="api('/api/release-escrow',{method:'POST',body:JSON.stringify({jobId:'${d.id}',tip:0})}).then(()=>{toast('Released');loadAdmin()})">Force Release</button>
+        <button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Cancelled');loadAdmin()})">Cancel/Refund</button></div>`; }).join('');
+
+    // 2. Support Tickets
+    const tickSnap = await db.collection('tickets').where('status', '==', 'open').get();
+    $('aTickets').innerHTML = tickSnap.empty ? '<div class="empty">No open tickets</div>' :
+      tickSnap.docs.map(d => { const t = d.data(); return `<div class="item"><div style="font-weight:800">${esc(t.subject)}</div>
+        <div class="muted">From: ${esc(t.name)} (${esc(t.email)})</div>
+        <div style="font-size:13px;margin:8px 0;">${esc(t.msg)}</div>
+        <button class="btn btn-sm" onclick="db.collection('tickets').doc('${d.id}').update({status:'resolved'}).then(loadAdmin)">Mark Resolved</button></div>`; }).join('');
+
+    // 3. All Users
+    const usersSnap = await db.collection('users').limit(50).get();
+    $('aAllUsers').innerHTML = usersSnap.empty ? '<div class="empty">No users</div>' :
+      usersSnap.docs.map(d => { const u = d.data(); return `<div class="item"><div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+        <div class="muted">${esc(u.email)}</div>
+        ${u.banned ? '<span class="badge status-dispute">BANNED</span>' : ''}
+        <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button>
+        <button class="btn btn-sm" onclick="db.collection('users').doc('${d.id}').update({banned:false}).then(()=>{toast('Unbanned');loadAdmin()})">Unban</button></div>`; }).join('');
+
+  } catch (e) { toast(e.message); }
+}
+
+async function broadcastInApp() {
+  const msg = $('broadcastText').value;
+  if(!msg) return;
+  toast('Broadcasting...');
+  try {
+    await db.collection('broadcasts').add({
+      type: 'text', message: msg, sender: 'Admin',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    $('broadcastText').value = '';
+    toast('Text broadcast sent to all!');
+  } catch(e) { toast(e.message); }
+}
+
+let adminMediaRecorder;
+let adminAudioChunks = [];
+
+async function recordAdminVoiceBroadcast() {
+  const btn = $('adminVoiceBtn');
+  if (adminMediaRecorder && adminMediaRecorder.state === 'recording') {
+    adminMediaRecorder.stop();
+    btn.innerHTML = '<i class="fas fa-microphone"></i> Record Voice';
+    btn.style.background = 'transparent';
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    adminMediaRecorder = new MediaRecorder(stream);
+    adminAudioChunks = [];
+    adminMediaRecorder.ondataavailable = event => adminAudioChunks.push(event.data);
+    
+    adminMediaRecorder.onstop = async () => {
+      toast('Uploading broadcast...');
+      const audioBlob = new Blob(adminAudioChunks, { type: 'audio/webm' });
+      const file = new File([audioBlob], "broadcast.webm", { type: 'audio/webm' });
+      
+      try {
+        const url = await uploadCloudinary(file, 'broadcasts');
+        await db.collection('broadcasts').add({
+          type: 'voice', audioUrl: url, sender: 'Admin',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        toast('Voice broadcast sent to all users!');
+      } catch (err) { toast('Upload failed: ' + err.message); }
+    };
+
+    adminMediaRecorder.start();
+    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+    btn.style.background = 'var(--danger)';
+    toast('Recording voice broadcast...');
+  } catch (e) { toast('Microphone access denied.'); }
+}
+
+function exportCSV() { toast('Exporting...'); alert('CSV Export: Connect to your database in production.'); }
+
+// ---- APP BOOT ----
+showLanding();
+loadGigs();
+
+// Ensure message listener starts after login
+auth.onAuthStateChanged(user => {
+  if (user && typeof listenForMessages === 'function') {
+    listenForMessages();
+  }
+});     
