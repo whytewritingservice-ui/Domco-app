@@ -273,7 +273,10 @@
 <h3>Broadcast (In-App)</h3>
 <div class="card" style="background:var(--bg)">
   <input id="broadcastText" placeholder="Message to all users...">
-  <button class="btn btn-ghost" onclick="broadcastInApp()">Send to all Inboxes</button>
+  <div class="grid-2" style="margin-top:8px">
+    <button class="btn btn-ghost" onclick="broadcastInApp()">Send Text</button>
+    <button class="btn btn-ghost" id="adminVoiceBtn" onclick="recordAdminVoiceBroadcast()"><i class="fas fa-microphone"></i> Record Voice</button>
+  </div>
 </div>
 
 <h3>All Active Jobs (Cancel/Refund)</h3>
@@ -643,8 +646,8 @@ async function doWithdraw() {
 function shareProfile() { toast('Link copied!'); navigator.clipboard.writeText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); }
 
 // ---- ADMIN ----
-async function loadAdmin() {
-  async function loadAdmin() {
+
+ async function loadAdmin() {
   if (!state.profile?.isAdmin) return;
   try {
     const stats = await api('/api/admin-stats');
@@ -687,7 +690,60 @@ async function broadcastInApp() {
   $('broadcastText').value = '';
   alert('Broadcast sent to all users!');
       }
+let adminMediaRecorder;
+let adminAudioChunks = [];
 
+async function recordAdminVoiceBroadcast() {
+  const btn = $('adminVoiceBtn');
+
+  // If already recording, stop it
+  if (adminMediaRecorder && adminMediaRecorder.state === 'recording') {
+    adminMediaRecorder.stop();
+    btn.innerHTML = '<i class="fas fa-microphone"></i> Record Voice';
+    btn.style.background = 'transparent';
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    adminMediaRecorder = new MediaRecorder(stream);
+    adminAudioChunks = [];
+
+    adminMediaRecorder.ondataavailable = event => {
+      adminAudioChunks.push(event.data);
+    };
+
+    adminMediaRecorder.onstop = async () => {
+      toast('Uploading broadcast...');
+      const audioBlob = new Blob(adminAudioChunks, { type: 'audio/webm' });
+      const file = new File([audioBlob], "broadcast.webm", { type: 'audio/webm' });
+      
+      try {
+        // Upload to Cloudinary
+        const url = await uploadCloudinary(file, 'broadcasts');
+        
+        // Save to Firestore
+        await db.collection('broadcasts').add({
+          type: 'voice',
+          audioUrl: url,
+          sender: 'Admin',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        toast('Voice broadcast sent to all users!');
+      } catch (err) {
+        toast('Upload failed: ' + err.message);
+      }
+    };
+
+    adminMediaRecorder.start();
+    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+    btn.style.background = 'var(--danger)'; // Turn red
+    toast('Recording voice broadcast...');
+  } catch (e) {
+    toast('Microphone access denied.');
+  }
+      }
 // ---- CHAT & CALLS (Basic Wiring) ----
 function closeChat() { show('chatInbox'); hide('chatWindow'); }
 function sendMessage() { toast('Chat sending...'); $('chatInput').value = ''; }
