@@ -151,27 +151,53 @@
     <div id="panePost" class="hidden">
       <h2>Post</h2>
       <div class="card">
-        <h3>Post a Gig (Freelancer)</h3>
-        <label>Title</label><input id="gTitle" placeholder="I will design a professional logo">
-        <label>Category</label>
-        <select id="gCat">
-          <option>Writing</option><option>Design</option><option>Coding</option><option>Translation</option><option>Video</option><option>Marketing</option>
-        </select>
-        <label>Description</label><textarea id="gDesc" rows="3"></textarea>
-        <button class="btn btn-ghost btn-sm" onclick="aiWrite()" style="margin-bottom:8px">✨ AI write description</button>
-        <label>Cover image</label><input type="file" id="gCover" accept="image/*">
-        <h3>3-Tier Pricing</h3>
-        <div class="grid-2">
-          <div><label>Basic ₦</label><input id="gBasic" type="number" min="500"></div>
-          <div><label>Standard ₦</label><input id="gStd" type="number" min="500"></div>
-        </div>
-        <div class="grid-2">
-          <div><label>Premium ₦</label><input id="gPrem" type="number" min="500"></div>
-          <div><label>Delivery (days)</label><input id="gDays" type="number" min="1" value="3"></div>
-        </div>
-        <button class="btn" onclick="postGig()" id="postGigBtn">Publish Gig</button>
-      </div>
+  <h3>Post a Gig (Freelancer)</h3>
+  <label>Title</label><input id="gTitle" placeholder="I will design a professional logo">
+  
+  <label>Category</label>
+  <select id="gCat">
+    <optgroup label="Programming & Tech">
+      <option>Web Development</option><option>App Development</option><option>WordPress</option><option>E-commerce</option><option>Data Entry</option>
+    </optgroup>
+    <optgroup label="Design & Creative">
+      <option>Logo Design</option><option>Graphics Design</option><option>UI/UX Design</option><option>Social Media Design</option>
+    </optgroup>
+    <optgroup label="Writing & Translation">
+      <option>Content Writing</option><option>Copywriting</option><option>Article Writing</option><option>Translation</option><option>Proofreading</option>
+    </optgroup>
+    <optgroup label="Digital Marketing">
+      <option>Social Media Management</option><option>SEO</option><option>Email Marketing</option><option>Ads Management</option>
+    </optgroup>
+    <optgroup label="Video & Audio">
+      <option>Video Editing</option><option>Animation</option><option>Voice Over</option><option>Audio Production</option>
+    </optgroup>
+    <optgroup label="Business & Admin">
+      <option>Virtual Assistant</option><option>Project Management</option><option>Business Consulting</option>
+    </optgroup>
+  </select>
 
+  <label>Description</label><textarea id="gDesc" rows="3"></textarea>
+  <button class="btn btn-ghost btn-sm" onclick="aiWrite()" style="margin-bottom:8px">✨ AI write description</button>
+  
+  <label>Cover image</label><input type="file" id="gCover" accept="image/*">
+  
+  <h3>3-Tier Pricing</h3>
+  <div class="grid-2">
+    <div><label>Basic ₦</label><input id="gBasic" type="number" min="500"></div>
+    <div><label>Standard ₦</label><input id="gStd" type="number" min="500"></div>
+  </div>
+  <div class="grid-2">
+    <div><label>Premium ₦</label><input id="gPrem" type="number" min="500"></div>
+    <div><label>Delivery (days)</label><input id="gDays" type="number" min="1" value="3"></div>
+  </div>
+  
+  <!-- BOOST CHECKBOX -->
+  <label style="display:flex;gap:8px;align-items:center;background:#fff3cd;padding:12px;border-radius:8px;color:#856404;margin-top:12px">
+    <input type="checkbox" id="gBoost" style="width:auto"> 🔥 Boost this Gig (₦500)
+  </label>
+
+  <button class="btn" onclick="postGig()" id="postGigBtn" style="margin-top:16px">Publish Gig</button>
+      </div>
       <div class="card">
         <h3>Post a Job (Client)</h3>
         <label>Title</label><input id="jTitle" placeholder="Need an expert logo designer">
@@ -542,17 +568,36 @@ async function postGig() {
   try {
     let cover = '';
     if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
+    
+    // Check if the boost box is ticked
+    const isBoosted = $('gBoost').checked;
+
     await db.collection('gigs').add({
       title: $('gTitle').value.trim(), category: $('gCat').value, description: $('gDesc').value.trim(),
       basic: Number($('gBasic').value), standard: Number($('gStd').value), premium: Number($('gPrem').value),
       days: Number($('gDays').value), coverUrl: cover, freelancerId: state.user.uid,
       freelancerName: (state.profile.first || '') + ' ' + (state.profile.last || ''),
+      boosted: isBoosted, 
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    toast('Gig published!'); await loadGigs(); nav('browse');
-  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Publish Gig'; }
-}
+    
+    toast('Gig published!'); 
+    await loadGigs(); 
+    nav('browse');
+    
+    // If they checked Boost, send them to Flutterwave to pay ₦500
+    if (isBoosted) {
+      toast('Redirecting to payment for Boost...');
+      setTimeout(() => { fundEscrow('boost_' + Date.now(), 500, 'PLATFORM', 'Gig Boost Payment'); }, 1500);
+    }
 
+  } catch (e) { 
+    toast(e.message); 
+  } finally { 
+    btn.disabled = false; 
+    btn.textContent = 'Publish Gig'; 
+  }
+                                }
 async function aiWrite() {
   try {
     toast('Generating…');
