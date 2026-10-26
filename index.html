@@ -520,12 +520,12 @@ async function login() {
   btn.textContent = 'Logging in…';
   try { 
     await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
+    window.location.reload(); // 👈 INSTANTLY RELOADS THE APP ON SUCCESS
   } catch (e) { 
-    alert("LOGIN ERROR: " + e.message); // 👈 This will pop up a message!
-  } finally { 
+    alert("LOGIN ERROR: " + e.message); 
     btn.disabled = false; 
     btn.textContent = 'Log in'; 
-  }
+    }
   }
 
 async function forgotPass() {
@@ -978,27 +978,20 @@ async function recordAdminVoiceBroadcast() {
 auth.onAuthStateChanged(async user => {
   if (!user) { state.user = null; state.profile = null; showLanding(); return; }
   state.user = user;
+  
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     state.profile = doc.exists ? doc.data() : null;
     
-    if (!state.profile) { 
-      alert("ERROR: Logged in, but no user profile found in database.");
-      showLanding(); 
-      return; 
-    }
+    if (!state.profile) { showLanding(); return; }
     
-    if (state.profile.banned) { 
-      alert("ERROR: This account is banned.");
-      await auth.signOut(); 
-      return; 
-    }
-    
+    // OPEN THE APP IMMEDIATELY - DO NOT WAIT FOR RENDER
     hide('landing'); hide('authScreen'); show('mainApp');
-    $('userPill').textContent = state.profile.role; 
-    $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+    if($('userPill')) $('userPill').textContent = state.profile.role; 
+    if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
     nav('browse');
     
+    // Load backend data in the background
     loadBanks().catch(err => console.log('Bank error:', err));
     loadGigs().catch(err => console.log('Gigs error:', err));
     
@@ -1008,7 +1001,7 @@ auth.onAuthStateChanged(async user => {
       history.replaceState({}, '', window.location.pathname); 
     }
   } catch (e) { 
-    alert("BOOT ERROR: " + e.message); // 👈 Catches database errors
+    alert("BOOT ERROR: " + e.message); 
   }
 });
 showLanding();
