@@ -552,15 +552,20 @@ function renderGigs() {
   if (!el) return;
   if (!list.length) { el.innerHTML = '<div class="empty">No gigs found</div>'; return; }
   
-  el.innerHTML = list.map(g => `
+    el.innerHTML = list.map(g => `
     <div class="item">
       ${g.coverUrl ? `<img src="${esc(g.coverUrl)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ''}
       <div style="font-weight:800">${esc(g.title)}</div>
       <div class="muted">${esc(g.category || '')} • by ${esc(g.freelancerName || 'Freelancer')}</div>
       <div style="font-size:13px;margin:8px 0">${esc((g.description||'').slice(0,100))}…</div>
       <div class="price">${ngn(g.basic)}</div>
-      <button class="btn btn-sm" style="margin-top:8px" onclick="hireGig('${g.id}')">Hire Now</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn btn-sm" style="flex:1" onclick="hireGig('${g.id}')">Hire Now</button>
+        <button class="btn btn-sm btn-ghost" style="flex:1" onclick="startChat('${g.freelancerId}', '${esc(g.freelancerName)}')">💬 Message</button>
+      </div>
     </div>`).join('');
+      }
+      
 }
 
 async function postGig() {
@@ -790,11 +795,146 @@ async function recordAdminVoiceBroadcast() {
   }
       }
 // ---- CHAT & CALLS (Basic Wiring) ----
-function closeChat() { show('chatInbox'); hide('chatWindow'); }
-function sendMessage() { toast('Chat sending...'); $('chatInput').value = ''; }
-function toggleVoiceRecord() { toast('Voice note recording started...'); }
+function closeChat() { 
+  show('chatInbox'); 
+  hide('chatWindow'); 
+  if(window.chatUnsubscribe) window.chatUnsubscribe();
+}
+
 function startVideoCall() { toast('Opening video call...'); window.open('https://meet.jit.si/domco-'+state.user.uid, '_blank'); }
 
+let currentChatId = null;
+
+async function startChat(otherUserId, otherName) {
+  if (otherUserId === state.user.uid) return toast("This is your own gig!");
+  
+  const chatId = [state.user.uid, otherUserId].sort().join('_');
+  
+  await db.collection('chats').doc(chatId).set({
+    participants: [state.user.uid, otherUserId],
+    names: { [state.user.uid]: state.profile.first, [otherUserId]: otherName },
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  openChatRoom(chatId, otherName);
+}
+
+async function loadChats() {
+  const snap = await db.collection('chats').where('participants', 'array-contains', state.user.uid).get();
+  if(snap.empty) { $('chatList').innerHTML = '<div class="empty">No conversations yet</div>'; return; }
+  
+  $('chatList').innerHTML = snap.docs.map(doc => {
+    const c = doc.data();
+    const otherId = c.participants.find(id => id !== state.user.uid);
+    const otherName = c.names[otherId] || 'User';
+    return `
+      <div class="item" onclick="openChatRoom('${doc.id}', '${esc(otherName)}')">
+        <div style="font-weight:800">${esc(otherName)}</div>
+        <div class="muted">${esc(c.lastMessage || 'Tap to chat')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openChatRoom(chatId, otherName) {
+  currentChatId = chatId;
+  hide('chatInbox'); show('chatWindow');
+  $('activeChatName').textContent = otherName;
+  $('chatMessages').innerHTML = '<div class="empty">Loading...</div>';
+
+  if(window.chatUnsubscribe) window.chatUnsubscribe();
+
+  // Listen for messages in real-time
+  window.chatUnsubscribe = db.collection('chats').doc(chatId).collection('messages')
+    .orderBy('createdAt', 'asc')
+    .onSnapshot(snap => {
+      $('chatMessages').innerHTML = snap.docs.map(doc => {
+        const m = doc.data();
+        const isMe = m.senderId === state.user.uid;
+        const time = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+        
+        if(m.type === 'voice') {
+          return `<div class="msg ${isMe ? 'me' : 'them'}"><audio controls src="${m.audioUrl}" style="max-width:100%"></audio><span class="msg-time">${time}</span></div>`;
+        }
+        return `<div class="msg ${isMe ? 'me' : 'them'}">${esc(m.text)} <span class="msg-time">${time}</span></div>`;
+      }).join('');
+      $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    });
+}
+
+async function sendMessage() {
+  const input = $('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentChatId) return;
+
+  // ANTI-SCAM FILTER
+  const phoneRegex = /(\+?234|0)[789][01]\d{8}/g;
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  
+  if (phoneRegex.test(text) || emailRegex.test(text)) {
+    toast('⚠️ Warning: Phone numbers and emails are not allowed in chat.');
+    return;
+  }
+
+  input.value = '';
+  
+  try {
+    await db.collection('chats').doc(currentChatId).collection('messages').add({
+      text: text, senderId: state.user.uid, type: 'text',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    await db.collection('chats').doc(currentChatId).update({
+      lastMessage: text, lastSenderId: state.user.uid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {
+    toast('Error sending: ' + e.message);
+  }
+}
+
+let mediaRecorder;
+let audioChunks = [];
+
+async function toggleVoiceRecord() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    $('voiceBtn').style.background = 'var(--p)';
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+    
+    mediaRecorder.onstop = async () => {
+      toast('Uploading voice note...');
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const file = new File([audioBlob], "voice.webm", { type: 'audio/webm' });
+      
+      const url = await uploadCloudinary(file, 'voice_notes');
+      if (url) {
+        await db.collection('chats').doc(currentChatId).collection('messages').add({
+          audioUrl: url, senderId: state.user.uid, type: 'voice',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('chats').doc(currentChatId).update({
+          lastMessage: '🎤 Voice Note', lastSenderId: state.user.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    };
+
+    mediaRecorder.start();
+    $('voiceBtn').style.background = 'var(--danger)'; 
+    toast('Recording... tap again to stop.');
+  } catch (e) {
+    toast('Microphone access denied.');
+  }
+      }
 // Init
 loadGigs();
   </script>
