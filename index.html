@@ -706,14 +706,6 @@ function copyText(text) {
   toast('✅ Link copied to clipboard!');
 }
 
-function shareProfile() { 
-  copyText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); 
-}
-
-function shareReferral() {
-  copyText(`Join Domco Hub! Use my code DOMCO-${state.user.uid.slice(0,4).toUpperCase()} to get verified and start earning. https://whytewritingservice-ui.github.io/Domco-app/`);
-}
-
 // ---- ADMIN ----
 
  async function loadAdmin() {
@@ -954,6 +946,33 @@ async function toggleVoiceRecord() {
     toast('Microphone access denied.');
   }
       }
+  function toggleRole() {
+  if (!state.profile) return;
+  const newRole = state.profile.role === 'client' ? 'freelancer' : 'client';
+  db.collection('users').doc(state.user.uid).update({ role: newRole }).then(() => {
+    state.profile.role = newRole;
+    $('userPill').textContent = (state.profile.first || 'User') + ' • ' + newRole;
+    toast('Switched to ' + newRole);
+  }).catch(e => toast(e.message));
+}
+
+function copyText(text) {
+  const temp = document.createElement("textarea");
+  temp.value = text;
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand("copy");
+  document.body.removeChild(temp);
+  toast('✅ Link copied!');
+}
+
+function shareProfile() { 
+  copyText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); 
+}
+
+function shareReferral() {
+  copyText(`Join Domco Hub! Use my code DOMCO-${state.user.uid.slice(0,4).toUpperCase()} to get verified and start earning. https://whytewritingservice-ui.github.io/Domco-app/`);
+      }    
 // Init
 loadGigs();
   </script>
