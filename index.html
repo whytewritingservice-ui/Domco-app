@@ -343,6 +343,9 @@
       <div id="aDisputes"><div class="empty">No active disputes</div></div>
       <h3>Support Tickets</h3>
       <div id="aTickets"><div class="empty">No tickets</div></div>
+      <!-- NIN APPROVALS -->
+<h3>Pending NIN Approvals</h3>
+<div id="aPending"><div class="empty">Loading...</div></div>
       <h3>All Users (Ban)</h3>
       <div id="aAllUsers"><div class="empty">Loading...</div></div>
     </div>
@@ -621,6 +624,8 @@ async function toggleSaveGig(gigId) {
 }
 
 async function postGig() {
+  if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot post a gig yet.');
+  const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
   const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
   try {
     let cover = ''; if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
@@ -646,6 +651,8 @@ async function aiWrite() {
 }
 
 async function postJob() {
+   if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot post a job yet.');
+  const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
   const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
   try {
     await db.collection('jobs').add({
@@ -659,6 +666,8 @@ async function postJob() {
 
 // ---- ESCROW & WALLET ----
 async function hireGig(gigId) {
+  if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot hire yet.');
+  const g = state.gigs.find(x => x.id === gigId); if (!g) return;
   const g = state.gigs.find(x => x.id === gigId); if (!g) return;
   const wallet = state.profile.walletBalance || 0;
   let walletBtn = wallet >= g.basic ? `<button class="btn" style="background:var(--success); margin-bottom:8px;" onclick="payFromWallet('${gigId}', ${g.basic}, '${g.freelancerId}', '${jsEsc(g.title)}')">Pay ${ngn(g.basic)} from Wallet</button>` : '';
@@ -736,7 +745,9 @@ function downloadInvoice(jobId, title, amount) {
 
 function openFundWallet() { openModal(`<h2>Fund Wallet</h2><label>Amount ₦</label><input id="fundAmt" type="number" min="100"><button class="btn" onclick="doFundWallet()">Proceed</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
 async function doFundWallet() { const amt = Number($('fundAmt').value); if(!amt || amt < 100) return toast('Min ₦100'); try { closeModal(); toast('Creating payment...'); const d = await api('/api/create-payment', { method: 'POST', body: JSON.stringify({ amount: amt, purpose: 'wallet' }) }); window.location.href = d.paymentLink; } catch(e) { toast(e.message); } }
-async function openWithdraw() { openModal(`<h2>Withdraw</h2><label>Amount ₦</label><input id="wdAmt" type="number" min="100"><label>Bank Code</label><input id="wdBank" placeholder="058"><label>Account Number</label><input id="wdAcct" maxlength="10"><button class="btn" onclick="doWithdraw()">Withdraw</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
+function openWithdraw() {
+  if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot withdraw funds yet.');
+  openModal(`<h2>Withdraw</h2>...
 async function doWithdraw() { try { const r = await api('/api/withdraw-wallet', { method: 'POST', body: JSON.stringify({ amount: Number($('wdAmt').value), bankCode: $('wdBank').value, accountNumber: $('wdAcct').value }) }); closeModal(); toast(r.message || 'Withdrawal initiated'); loadMyThings(); } catch (e) { toast(e.message); } }
 
 // ---- CHAT & VOICE ----
@@ -892,11 +903,25 @@ async function loadAdmin() {
   if (!state.profile?.isAdmin) return;
   try {
     const stats = await api('/api/admin-stats'); $('aEscrow').textContent = ngn(stats.escrow); $('aProfit').textContent = ngn(stats.profit); $('aUsers').textContent = stats.totalUsers; $('aJobs').textContent = stats.totalJobs;
-    const jobsSnap = await db.collection('jobs').get(); const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed'].includes(d.data().status));
+     const jobsSnap = await db.collection('jobs').get(); const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed'].includes(d.data().status));
     $('aDisputes').innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' : activeJobs.map(d => { const j = d.data(); return `<div class="item"><div style="font-weight:800">${esc(j.title)}</div><div class="muted">Status: ${j.status}</div><div class="price">${ngn(j.amount)}</div><button class="btn btn-sm" onclick="api('/api/release-escrow',{method:'POST',body:JSON.stringify({jobId:'${d.id}',tip:0})}).then(()=>{toast('Released');loadAdmin()})">Force Release</button><button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Cancelled');loadAdmin()})">Refund</button></div>`; }).join('');
         const tickSnap = await db.collection('tickets').where('status', '==', 'open').get();
     $('aTickets').innerHTML = tickSnap.empty ? '<div class="empty">No tickets</div>' : tickSnap.docs.map(d => { const t = d.data(); return `<div class="item"><div style="font-weight:800">${esc(t.subject)}</div><div class="muted">From: ${esc(t.name)}</div><div style="font-size:13px;margin:8px 0;">${esc(t.msg)}</div><button class="btn btn-sm" onclick="db.collection('tickets').doc('${d.id}').update({status:'resolved'}).then(loadAdmin)">Resolve</button></div>`; }).join('');
-    
+    // Pending NINs
+const pendSnap = await db.collection('users').where('ninApproved', '==', false).limit(20).get();
+$('aPending').innerHTML = pendSnap.empty ? '<div class="empty">No pending NINs</div>' :
+  pendSnap.docs.map(d => { const u = d.data(); return `
+    <div class="item" style="border-left: 4px solid var(--warn);">
+      <div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+      <div class="muted">Email: ${esc(u.email)}</div>
+      <div class="muted">NIN: ${esc(u.nin || 'Not provided')}</div>
+      
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        ${u.ninSlipUrl ? `<a href="${esc(u.ninSlipUrl)}" target="_blank" class="btn btn-ghost btn-sm">👁️ View NIN Slip</a>` : '<span class="muted" style="color:red">No slip uploaded</span>'}
+        <button class="btn btn-sm" style="background:var(--success)" onclick="db.collection('users').doc('${d.id}').update({ninApproved:true}).then(()=>{toast('NIN Approved');loadAdmin()})">Approve</button>
+      </div>
+    </div>`; 
+  }).join('');
     const usersSnap = await db.collection('users').limit(50).get();
     $('aAllUsers').innerHTML = usersSnap.empty ? '<div class="empty">No users</div>' : usersSnap.docs.map(d => { const u = d.data(); return `<div class="item"><div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div><div class="muted">${esc(u.email)}</div>${u.banned ? '<span class="badge status-dispute">BANNED</span>' : ''}<button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button><button class="btn btn-sm" onclick="db.collection('users').doc('${d.id}').update({banned:false}).then(()=>{toast('Unbanned');loadAdmin()})">Unban</button></div>`; }).join('');
   } catch (e) { toast(e.message); }
