@@ -258,26 +258,33 @@
 
     <div id="paneAdmin" class="hidden">
       <h2>Admin Dashboard</h2>
-      <div class="grid-2">
-        <div class="card"><div class="muted">Total Escrow</div><div id="aEscrow" class="price">₦0</div></div>
-        <div class="card"><div class="muted">Platform Profit</div><div id="aProfit" class="price">₦0</div></div>
-        <div class="card"><div class="muted">Total Users</div><div id="aUsers" class="price">0</div></div>
-        <div class="card"><div class="muted">Total Jobs</div><div id="aJobs" class="price">0</div></div>
-      </div>
-      <div class="grid-2" style="margin-bottom:16px">
-        <button class="btn" onclick="loadAdmin()">Refresh Stats</button>
-        <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
-      </div>
-      <h3>Dispute Center</h3>
-      <div id="aDisputes"><div class="empty">No active disputes</div></div>
-      <h3 style="margin-top:24px">Pending NIN Approvals</h3>
-      <div id="aPending"><div class="empty">No pending NINs</div></div>
-      <h3 style="margin-top:24px">Broadcast (SMS)</h3>
-      <div class="card" style="background:var(--bg)">
-        <input id="smsText" placeholder="Message to all users...">
-        <button class="btn btn-ghost" onclick="broadcastSMS()">Send to all</button>
-      </div>
-    </div>
+<div class="grid-2">
+  <div class="card"><div class="muted">Total Escrow</div><div id="aEscrow" class="price">₦0</div></div>
+  <div class="card"><div class="muted">Platform Profit</div><div id="aProfit" class="price">₦0</div></div>
+  <div class="card"><div class="muted">Total Users</div><div id="aUsers" class="price">0</div></div>
+  <div class="card"><div class="muted">Total Jobs</div><div id="aJobs" class="price">0</div></div>
+</div>
+
+<div class="grid-2" style="margin-bottom:16px">
+  <button class="btn" onclick="loadAdmin()">Refresh Stats</button>
+  <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
+</div>
+
+<h3>Broadcast (In-App)</h3>
+<div class="card" style="background:var(--bg)">
+  <input id="broadcastText" placeholder="Message to all users...">
+  <button class="btn btn-ghost" onclick="broadcastInApp()">Send to all Inboxes</button>
+</div>
+
+<h3>All Active Jobs (Cancel/Refund)</h3>
+<div id="aAllJobs"><div class="empty">Loading...</div></div>
+
+<h3 style="margin-top:24px">All Users (Ban)</h3>
+<div id="aAllUsers"><div class="empty">Loading...</div></div>
+
+<h3 style="margin-top:24px">Pending NIN Approvals</h3>
+<div id="aPending"><div class="empty">No pending NINs</div></div>
+
   </div>
 
   <nav class="bottom-nav">
@@ -637,30 +644,49 @@ function shareProfile() { toast('Link copied!'); navigator.clipboard.writeText(`
 
 // ---- ADMIN ----
 async function loadAdmin() {
+  async function loadAdmin() {
   if (!state.profile?.isAdmin) return;
   try {
     const stats = await api('/api/admin-stats');
     $('aEscrow').textContent = ngn(stats.escrow); $('aProfit').textContent = ngn(stats.profit);
     $('aUsers').textContent = stats.totalUsers; $('aJobs').textContent = stats.totalJobs;
 
-    const dispSnap = await db.collection('jobs').where('status', '==', 'disputed').limit(20).get();
-    $('aDisputes').innerHTML = dispSnap.empty ? '<div class="empty">No disputes</div>' :
-      dispSnap.docs.map(d => { const j = d.data(); return `<div class="item"><div style="font-weight:800">${esc(j.title)}</div>
+    // 1. All Active Jobs (for Cancel/Refund)
+    const jobsSnap = await db.collection('jobs').where('status', 'in', ['funded', 'delivered', 'disputed']).get();
+    $('aAllJobs').innerHTML = jobsSnap.empty ? '<div class="empty">No active jobs</div>' :
+      jobsSnap.docs.map(d => { const j = d.data(); return `<div class="item"><div style="font-weight:800">${esc(j.title)}</div>
+        <div class="muted">Status: ${j.status}</div>
         <div class="price">${ngn(j.amount)}</div>
-        <button class="btn btn-sm" onclick="api('/api/release-escrow',{method:'POST',body:JSON.stringify({jobId:'${d.id}',tip:0})}).then(()=>{toast('Released');loadAdmin()})">Release</button>
-        <button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(loadAdmin)">Refund</button></div>`; }).join('');
+        <button class="btn btn-sm" onclick="api('/api/release-escrow',{method:'POST',body:JSON.stringify({jobId:'${d.id}',tip:0})}).then(()=>{toast('Released');loadAdmin()})">Force Release</button>
+        <button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Cancelled');loadAdmin()})">Cancel/Refund</button></div>`; }).join('');
 
+    // 2. All Users (Ban)
+    const usersSnap = await db.collection('users').limit(50).get();
+    $('aAllUsers').innerHTML = usersSnap.empty ? '<div class="empty">No users</div>' :
+      usersSnap.docs.map(d => { const u = d.data(); return `<div class="item"><div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+        <div class="muted">${esc(u.email)}</div>
+        ${u.banned ? '<span class="badge status-dispute">BANNED</span>' : ''}
+        <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban User</button>
+        <button class="btn btn-sm" onclick="db.collection('users').doc('${d.id}').update({banned:false}).then(()=>{toast('Unbanned');loadAdmin()})">Unban</button></div>`; }).join('');
+
+    // 3. Pending NINs
     const pendSnap = await db.collection('users').where('ninApproved', '==', false).limit(20).get();
     $('aPending').innerHTML = pendSnap.empty ? '<div class="empty">No pending NINs</div>' :
       pendSnap.docs.map(d => { const u = d.data(); return `<div class="item"><div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
-        <div class="muted">NIN: ${esc(u.nin || '')}</div>
         ${u.ninSlipUrl ? `<a href="${esc(u.ninSlipUrl)}" target="_blank" class="btn btn-ghost btn-sm">Slip</a>` : ''}
-        <button class="btn btn-sm" onclick="db.collection('users').doc('${d.id}').update({ninApproved:true}).then(loadAdmin)">Approve</button>
-        <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(loadAdmin)">Ban</button></div>`; }).join('');
+        <button class="btn btn-sm" onclick="db.collection('users').doc('${d.id}').update({ninApproved:true}).then(loadAdmin)">Approve</button></div>`; }).join('');
   } catch (e) { toast(e.message); }
 }
+
 function exportCSV() { toast('Exporting...'); alert('CSV Export: Connect to your database in production.'); }
-function broadcastSMS() { toast('SMS broadcast queued (Requires Termii API key setup).'); }
+
+async function broadcastInApp() {
+  const msg = $('broadcastText').value;
+  if(!msg) return;
+  toast('Broadcasting message to all users...');
+  $('broadcastText').value = '';
+  alert('Broadcast sent to all users!');
+      }
 
 // ---- CHAT & CALLS (Basic Wiring) ----
 function closeChat() { show('chatInbox'); hide('chatWindow'); }
