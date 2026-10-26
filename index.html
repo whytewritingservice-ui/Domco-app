@@ -308,10 +308,6 @@ const CLOUD = "owgx72d6";
 const PRESET = "ec5pvufi";
 /* ========================================== */
 
-window.addEventListener('error', e => {
-  const b = document.getElementById('bootError');
-  if(b) { b.style.display = 'block'; b.textContent += '❌ ' + e.message + ' @ ' + e.lineno + ':' + e.colno + '\n'; }
-});
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
