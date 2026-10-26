@@ -597,7 +597,7 @@ function renderGigs(showOnlySaved = false) {
       <div class="price">${ngn(g.basic)}</div>
       <div class="grid-2" style="margin-top:10px;">
         <button class="btn btn-sm" onclick="hireGig('${g.id}')">Hire Now</button>
-        <button class="btn btn-sm btn-ghost" onclick="startChat('${g.freelancerId}', '${jsEsc(g.freelancerName)}')">💬 Message</button>
+           <button class="btn btn-sm btn-ghost" onclick="startChat('${g.freelancerId}', '${jsEsc(g.freelancerName || 'Freelancer')}')">💬 Message</button>
       </div>
     </div>`).join('');
 }
@@ -735,8 +735,17 @@ let currentChatId = null;
 
 async function startChat(otherUserId, otherName) {
   if (otherUserId === state.user.uid) return toast("Can't message yourself!");
-  try { const chatId = [state.user.uid, otherUserId].sort().join('_'); await db.collection('chats').doc(chatId).set({ participants: [state.user.uid, otherUserId], names: { [state.user.uid]: state.profile.first, [otherUserId]: otherName }, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); openChatRoom(chatId, otherName); } catch(e) { toast('Error: ' + e.message); }
-}
+  const safeName = (otherName && otherName !== 'undefined') ? otherName : 'User';
+  try { 
+    const chatId = [state.user.uid, otherUserId].sort().join('_'); 
+    await db.collection('chats').doc(chatId).set({ 
+      participants: [state.user.uid, otherUserId], 
+      names: { [state.user.uid]: state.profile.first || 'User', [otherUserId]: safeName }, 
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+    }, { merge: true }); 
+    openChatRoom(chatId, safeName); 
+  } catch(e) { toast('Error: ' + e.message); }
+    }
 
 async function loadChats() {
   try {
