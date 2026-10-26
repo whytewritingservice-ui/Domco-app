@@ -701,8 +701,26 @@ async function releaseEscrow(jobId) {
 }
 
 function downloadInvoice(jobId, title, amount) {
-  const html = `<html><head><title>Invoice</title><style>body{font-family:sans-serif;padding:40px;color:#111;} .box{border:1px solid #ddd;padding:20px;border-radius:10px;max-width:500px;margin:auto;} h1{color:#6D28D9;}</style></head><body><div class="box"><h1>Domco Hub Invoice</h1><p><strong>Job:</strong> ${title}</p><p><strong>ID:</strong> ${jobId}</p><p><strong>Total:</strong> ₦${amount.toLocaleString()}</p><hr><p><strong>Fee (35%):</strong> ₦${(amount*0.35).toLocaleString()}</p><p><strong>Payout (65%):</strong> ₦${(amount*0.65).toLocaleString()}</p><p style="font-size:12px;color:#888;">Thank you.</p></div><script>window.print();</script></body></html>`;
-  const w = window.open('', '_blank'); w.document.write(html); w.document.close();
+  const fee = amount * 0.35;
+  const payout = amount * 0.65;
+  const htmlLines = [
+    '<html><head><title>Invoice</title>',
+    '<style>body{font-family:sans-serif;padding:40px;} .box{border:1px solid #ddd;padding:20px;border-radius:10px;max-width:500px;margin:auto;} h1{color:#6D28D9;}</style>',
+    '</head><body><div class="box">',
+    '<h1>Domco Hub Invoice</h1>',
+    '<p><strong>Job:</strong> ' + title + '</p>',
+    '<p><strong>ID:</strong> ' + jobId + '</p>',
+    '<p><strong>Total:</strong> ₦' + amount.toLocaleString() + '</p>',
+    '<hr>',
+    '<p><strong>Fee (35%):</strong> ₦' + fee.toLocaleString() + '</p>',
+    '<p><strong>Payout (65%):</strong> ₦' + payout.toLocaleString() + '</p>',
+    '<p style="font-size:12px;color:#888;">Thank you.</p>',
+    '</div></body></html>'
+  ];
+  const w = window.open('', '_blank');
+  w.document.write(htmlLines.join(''));
+  w.document.close();
+    }
 }
 
 function openFundWallet() { openModal(`<h2>Fund Wallet</h2><label>Amount ₦</label><input id="fundAmt" type="number" min="100"><button class="btn" onclick="doFundWallet()">Proceed</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
