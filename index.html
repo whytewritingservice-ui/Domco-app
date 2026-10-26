@@ -244,12 +244,28 @@
           <button class="btn btn-sm" onclick="startVideoCall()" style="margin-left:auto;width:auto;padding:6px 10px;"><i class="fas fa-video"></i></button>
         </div>
         <div id="chatMessages" class="chat-box"></div>
-        <div id="typingIndicator" class="hidden" style="font-size:11px;color:var(--muted);margin-bottom:5px;font-style:italic;">User is typing...</div>
-        <div style="display:flex;gap:6px;margin-top:10px;">
-          <input id="chatInput" placeholder="Type a message..." style="margin:0;flex:1;" onkeyup="sendTypingStatus()" onkeypress="if(event.key==='Enter')sendMessage()">
-          <button id="sendBtn" class="btn" style="width:auto;margin:0;padding:0 14px;" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
-          <button id="voiceBtn" class="btn" style="width:auto;margin:0;padding:0 14px;" onclick="toggleVoiceRecord()"><i class="fas fa-microphone"></i></button>
-        </div>
+        <!-- Sticker Tray -->
+<div id="stickerTray" class="hidden" style="display:flex; gap:15px; overflow-x:auto; padding:10px; background:var(--card); border-radius:10px; margin-top:10px; border:1px solid var(--border);">
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('👍')">👍</span>
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('❤️')">❤️</span>
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('😂')">😂</span>
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('🔥')">🔥</span>
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('🎉')">🎉</span>
+  <span style="font-size:30px; cursor:pointer;" onclick="sendSticker('🙏')">🙏</span>
+</div>
+
+<!-- New Input Row with Stickers & Files -->
+<div style="display:flex;gap:6px;margin-top:10px; align-items:center;">
+  <button class="btn" style="width:auto;margin:0;padding:10px; background:var(--b);" onclick="toggleStickerTray()"><i class="fas fa-smile"></i></button>
+  <button class="btn" style="width:auto;margin:0;padding:10px; background:var(--warn);" onclick="document.getElementById('chatFile').click()"><i class="fas fa-paperclip"></i></button>
+  <input type="file" id="chatFile" accept="image/*,.pdf" style="display:none;" onchange="sendFile()">
+  
+  <input id="chatInput" placeholder="Type a message..." style="margin:0;flex:1; padding:10px;" onkeypress="if(event.key==='Enter')sendMessage()">
+  
+  <button id="voiceBtn" class="btn" style="width:auto;margin:0;padding:10px;" onclick="toggleVoiceRecord()"><i class="fas fa-microphone"></i></button>
+  <button id="sendBtn" class="btn" style="width:auto;margin:0;padding:10px;" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+</div>
+<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="openCustomOfferModal()">💼 Send Custom Offer</button>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="openCustomOfferModal()">💼 Send Custom Offer</button>
       </div>
     </div>
@@ -730,7 +746,15 @@ async function doWithdraw() { try { const r = await api('/api/withdraw-wallet', 
 
 // ---- CHAT & VOICE ----
 function closeChat() { show('chatInbox'); hide('chatWindow'); if(window.chatUnsubscribe) window.chatUnsubscribe(); }
-function startVideoCall() { toast('Opening video call...'); window.open('https://meet.jit.si/domco-'+state.user.uid, '_blank'); }
+function startVideoCall() {
+  const roomName = 'domco-' + (currentChatId || 'room'); 
+  openModal(`
+    <div style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#000; z-index:99999; display:flex; flex-direction:column;">
+      <button class="btn btn-danger" style="position:absolute; top:20px; right:20px; z-index:100000; width:auto; padding:10px 20px;" onclick="closeModal()">✖ End Call</button>
+      <iframe src="https://meet.jit.si/${roomName}" style="width:100%; height:100%; border:none;" allow="camera; microphone; fullscreen; display-capture"></iframe>
+    </div>
+  `);
+    }
 let currentChatId = null;
 
 async function startChat(otherUserId, otherName) {
@@ -743,10 +767,12 @@ async function startChat(otherUserId, otherName) {
       names: { [state.user.uid]: state.profile.first || 'User', [otherUserId]: safeName }, 
       updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
     }, { merge: true }); 
+    
+    nav('chat'); // 👈 This forces the app to switch to the Chat tab!
     openChatRoom(chatId, safeName); 
   } catch(e) { toast('Error: ' + e.message); }
     }
-
+    
 async function loadChats() {
   try {
     const snap = await db.collection('chats').where('participants', 'array-contains', state.user.uid).get();
@@ -756,17 +782,44 @@ async function loadChats() {
 }
 
 async function openChatRoom(chatId, otherName) {
-  currentChatId = chatId; hide('chatInbox'); show('chatWindow'); $('activeChatName').textContent = otherName; $('chatMessages').innerHTML = '<div class="empty">Loading...</div>';
+  currentChatId = chatId; 
+  hide('chatInbox'); 
+  show('chatWindow'); 
+  $('activeChatName').textContent = otherName; 
+  $('chatMessages').innerHTML = '<div class="empty">Loading...</div>';
+  
   if(window.chatUnsubscribe) window.chatUnsubscribe();
+  
   window.chatUnsubscribe = db.collection('chats').doc(chatId).collection('messages').orderBy('createdAt', 'asc').onSnapshot(snap => {
     if(snap.empty) { $('chatMessages').innerHTML = '<div class="empty">Say hello! 👋</div>'; return; }
-    $('chatMessages').innerHTML = snap.docs.map(doc => { const m = doc.data(); const isMe = m.senderId === state.user.uid; const time = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
-      if(m.type === 'voice') return `<div class="msg ${isMe ? 'me' : 'them'}"><audio controls src="${m.audioUrl}" style="max-width:100%;height:40px;"></audio><span class="msg-time">${time}</span></div>`;
+    
+    $('chatMessages').innerHTML = snap.docs.map(doc => { 
+      const m = doc.data(); 
+      const isMe = m.senderId === state.user.uid; 
+      const time = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+      
+      if(m.type === 'voice') {
+        return `<div class="msg ${isMe ? 'me' : 'them'}"><audio controls src="${m.audioUrl}" style="max-width:100%;height:40px;"></audio><span class="msg-time">${time}</span></div>`;
+      }
+      
+      if(m.type === 'sticker') {
+        return `<div class="msg ${isMe ? 'me' : 'them'}" style="background:transparent; font-size:50px; padding:0;">${m.text}<span class="msg-time">${time}</span></div>`;
+      }
+      
+      if (m.type === 'file') {
+        if (m.fileType === 'image') {
+          return `<div class="msg ${isMe ? 'me' : 'them'}"><img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; margin-bottom:5px;"> <span class="msg-time">${time}</span></div>`;
+        }
+        return `<div class="msg ${isMe ? 'me' : 'them'}"><a href="${m.fileUrl}" target="_blank" style="color:inherit; text-decoration:underline;">📎 Download File</a><span class="msg-time">${time}</span></div>`;
+      }
+      
       return `<div class="msg ${isMe ? 'me' : 'them'}">${esc(m.text)}<span class="msg-time">${time}</span></div>`;
+      
     }).join('');
+    
     $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
   });
-}
+                        }
 
 async function sendMessage() {
   const input = $('chatInput'); const text = input.value.trim(); if (!text || !currentChatId) return;
@@ -774,7 +827,50 @@ async function sendMessage() {
   input.value = '';
   try { await db.collection('chats').doc(currentChatId).collection('messages').add({ text: text, senderId: state.user.uid, type: 'text', createdAt: firebase.firestore.FieldValue.serverTimestamp() }); await db.collection('chats').doc(currentChatId).update({ lastMessage: text, lastSenderId: state.user.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); } catch (e) { toast(e.message); }
 }
+async function sendFile() {
+  const file = $('chatFile').files[0];
+  if(!file || !currentChatId) return;
+  toast('Uploading file...');
+  try {
+    const url = await uploadCloudinary(file, 'chat_files');
+    const isImage = file.type.startsWith('image/');
+    
+    await db.collection('chats').doc(currentChatId).collection('messages').add({ 
+      text: isImage ? '📷 Image' : '📎 File', 
+      fileUrl: url, 
+      fileType: isImage ? 'image' : 'file',
+      senderId: state.user.uid, 
+      type: 'file', 
+      createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+    }); 
+    await db.collection('chats').doc(currentChatId).update({ 
+      lastMessage: isImage ? '📷 Image' : '📎 File', 
+      lastSenderId: state.user.uid, 
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+    }); 
+    $('chatFile').value = ''; 
+    toast('File sent!');
+  } catch(e) { toast('Upload failed: ' + e.message); }
+}
 
+function toggleStickerTray() {
+  $('stickerTray').classList.toggle('hidden');
+}
+
+async function sendSticker(emoji) {
+  if (!currentChatId) return;
+  $('stickerTray').classList.add('hidden'); 
+  try {
+    await db.collection('chats').doc(currentChatId).collection('messages').add({
+      text: emoji, senderId: state.user.uid, type: 'sticker',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('chats').doc(currentChatId).update({
+      lastMessage: 'Sticker', lastSenderId: state.user.uid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) { toast(e.message); }
+    }
 function openCustomOfferModal() { if(!currentChatId) return toast('Open a chat first'); openModal(`<h2>Custom Offer</h2><label>Price ₦</label><input id="offAmt" type="number"><label>Delivery Days</label><input id="offDays" type="number" value="3"><button class="btn" onclick="sendOffer()">Send Offer</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
 async function sendOffer() { const amt = $('offAmt').value; if(!amt) return; await db.collection('chats').doc(currentChatId).collection('messages').add({ text: `💼 CUSTOM OFFER: ₦${amt} in ${$('offDays').value} days`, senderId: state.user.uid, type: 'text', createdAt: firebase.firestore.FieldValue.serverTimestamp() }); closeModal(); toast('Offer sent!'); }
 
