@@ -974,17 +974,28 @@ auth.onAuthStateChanged(async user => {
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     state.profile = doc.exists ? doc.data() : null;
+    
     if (!state.profile) { showLanding(); return; }
     if (state.profile.banned) { toast('Banned'); await auth.signOut(); return; }
+    
+    // 1. Open the app IMMEDIATELY (no waiting for Render)
     hide('landing'); hide('authScreen'); show('mainApp');
     $('userPill').textContent = state.profile.role; 
     $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
-    nav('browse'); loadBanks(); loadGigs();
+    nav('browse');
+    
+    // 2. Load data in the background (don't await)
+    loadBanks().catch(err => console.log('Bank error:', err));
+    loadGigs().catch(err => console.log('Gigs error:', err));
+    
+    // 3. Check for Flutterwave redirect
     const txRef = new URL(window.location.href).searchParams.get('tx_ref');
-    if (txRef && typeof verifyPayment === 'function') { await verifyPayment(txRef); history.replaceState({}, '', window.location.pathname); }
+    if (txRef && typeof verifyPayment === 'function') { 
+      verifyPayment(txRef); 
+      history.replaceState({}, '', window.location.pathname); 
+    }
   } catch (e) { toast(e.message); }
 });
-
 showLanding();
 </script>
 </body>
