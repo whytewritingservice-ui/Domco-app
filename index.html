@@ -128,6 +128,7 @@
   <div class="header">
     <div class="logo"><span>DC</span>Domco</div>
     <div class="header-actions">
+      <button onclick="toggleRole()" style="font-size:14px; font-weight:bold; color:#fff; background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:12px; border:none; margin-right:8px;">Switch Role</button>
       <span class="pill" id="userPill">—</span>
       <button onclick="toggleDark()"><i class="fas fa-moon"></i></button>
       <button onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
@@ -256,16 +257,10 @@
           <div id="walletBal" style="font-size:26px;font-weight:900">₦0</div>
         </div>
         <div class="grid-2">
-          <button class="btn btn-ghost" onclick="openWithdraw()">Withdraw</button>
-          <button class="btn" onclick="shareProfile()">Share Profile</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="paneChat" class="hidden">
-      <div id="chatInbox">
-        <h2>Inbox</h2>
-        <div id="chatList"><div class="empty">No conversations yet</div></div>
+  <button class="btn btn-ghost" onclick="openWithdraw()">Withdraw</button>
+  <button class="btn" onclick="shareProfile()">Share Profile</button>
+</div>
+<button class="btn" style="background:#f59e0b; margin-top:8px;" onclick="shareReferral()">🎁 Copy Referral Link (Earn ₦500)</button>
       </div>
       <div id="chatWindow" class="hidden">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;position:sticky;top:50px;background:var(--bg);padding:10px 0;z-index:10">
@@ -569,18 +564,27 @@ function renderGigs() {
 }
 
 async function postGig() {
-  const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
+  const btn = $('postGigBtn'); 
+  btn.disabled = true; 
+  btn.textContent = 'Publishing…';
   try {
     let cover = '';
     if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
     
-    // Check if the boost box is ticked
-    const isBoosted = $('gBoost').checked;
+    // Check if the boost box is ticked (Safe check)
+    const boostBox = $('gBoost');
+    const isBoosted = boostBox ? boostBox.checked : false;
 
     await db.collection('gigs').add({
-      title: $('gTitle').value.trim(), category: $('gCat').value, description: $('gDesc').value.trim(),
-      basic: Number($('gBasic').value), standard: Number($('gStd').value), premium: Number($('gPrem').value),
-      days: Number($('gDays').value), coverUrl: cover, freelancerId: state.user.uid,
+      title: $('gTitle').value.trim(), 
+      category: $('gCat').value, 
+      description: $('gDesc').value.trim(),
+      basic: Number($('gBasic').value), 
+      standard: Number($('gStd').value), 
+      premium: Number($('gPrem').value),
+      days: Number($('gDays').value), 
+      coverUrl: cover, 
+      freelancerId: state.user.uid,
       freelancerName: (state.profile.first || '') + ' ' + (state.profile.last || ''),
       boosted: isBoosted, 
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -590,7 +594,6 @@ async function postGig() {
     await loadGigs(); 
     nav('browse');
     
-    // If they checked Boost, send them to Flutterwave to pay ₦500
     if (isBoosted) {
       toast('Redirecting to payment for Boost...');
       setTimeout(() => { fundEscrow('boost_' + Date.now(), 500, 'PLATFORM', 'Gig Boost Payment'); }, 1500);
@@ -602,7 +605,7 @@ async function postGig() {
     btn.disabled = false; 
     btn.textContent = 'Publish Gig'; 
   }
-                                }
+      }
 async function aiWrite() {
   try {
     toast('Generating…');
@@ -693,7 +696,23 @@ async function doWithdraw() {
     closeModal(); toast(r.message || 'Withdrawal initiated');
   } catch (e) { toast(e.message); }
 }
-function shareProfile() { toast('Link copied!'); navigator.clipboard.writeText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); }
+function copyText(text) {
+  const temp = document.createElement("textarea");
+  temp.value = text;
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand("copy");
+  document.body.removeChild(temp);
+  toast('✅ Link copied to clipboard!');
+}
+
+function shareProfile() { 
+  copyText(`https://whytewritingservice-ui.github.io/Domco-app/?u=${state.user.uid}`); 
+}
+
+function shareReferral() {
+  copyText(`Join Domco Hub! Use my code DOMCO-${state.user.uid.slice(0,4).toUpperCase()} to get verified and start earning. https://whytewritingservice-ui.github.io/Domco-app/`);
+}
 
 // ---- ADMIN ----
 
