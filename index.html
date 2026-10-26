@@ -976,32 +976,34 @@ async function recordAdminVoiceBroadcast() {
 
 // ---- APP BOOT ----
 auth.onAuthStateChanged(async user => {
-  if (!user) { state.user = null; state.profile = null; showLanding(); return; }
+  if (!user) { 
+    alert("AUTH CHECK: No user found. Kicking to landing page.");
+    state.user = null; state.profile = null; showLanding(); return; 
+  }
+  
   state.user = user;
   
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     state.profile = doc.exists ? doc.data() : null;
     
-    if (!state.profile) { showLanding(); return; }
+    if (!state.profile) { 
+      alert("PROFILE CHECK: User is logged in (ID: " + user.uid + "), but NO profile document exists in the database for this ID.");
+      showLanding(); 
+      return; 
+    }
     
-    // OPEN THE APP IMMEDIATELY - DO NOT WAIT FOR RENDER
+    // If we get here, everything is perfect!
     hide('landing'); hide('authScreen'); show('mainApp');
     if($('userPill')) $('userPill').textContent = state.profile.role; 
     if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
     nav('browse');
     
-    // Load backend data in the background
     loadBanks().catch(err => console.log('Bank error:', err));
     loadGigs().catch(err => console.log('Gigs error:', err));
     
-    const txRef = new URL(window.location.href).searchParams.get('tx_ref');
-    if (txRef && typeof verifyPayment === 'function') { 
-      verifyPayment(txRef); 
-      history.replaceState({}, '', window.location.pathname); 
-    }
   } catch (e) { 
-    alert("BOOT ERROR: " + e.message); 
+    alert("DATABASE ERROR: " + e.message); 
   }
 });
 showLanding();
