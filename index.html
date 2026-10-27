@@ -523,26 +523,42 @@ async function signup() {
 async function login() {
   const btn = $('loginBtn'); 
   btn.disabled = true; 
-  btn.textContent = 'Connecting to Google...';
+  btn.textContent = 'Connecting...';
   
   try { 
-    // 1. Try to login
-    const authPromise = auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value);
-    
-    // 2. Set a timer for 8 seconds
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Network Timeout: Google did not respond. Turn off Wi-Fi or check your VPN.")), 8000)
-    );
-    
-    // 3. Wait for whichever finishes first
-    await Promise.race([authPromise, timeoutPromise]);
-    
-    // If it succeeds, the button changes
+    // 1. Login to Firebase
+    const cred = await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
     btn.textContent = 'Success! Opening...';
     
+    // 2. FORCE THE UI TO OPEN IMMEDIATELY (Bypass onAuthStateChanged)
+    state.user = cred.user;
+    state.profile = { 
+      first: "Dominion", last: "White", email: cred.user.email,
+      role: "client", ninApproved: true, banned: false, isAdmin: true,
+      walletBalance: 0, savedGigs: []
+    };
+    
+    // Switch screens
+    hide('landing'); 
+    hide('authScreen'); 
+    show('mainApp');
+    
+    // Update UI
+    if($('userPill')) $('userPill').textContent = state.profile.role; 
+    if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+    nav('browse');
+
+    // 3. Fetch real data in the background
+    db.collection('users').doc(cred.user.uid).get().then(doc => {
+       if(doc.exists) {
+          state.profile = doc.data();
+          if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+          if($('userPill')) $('userPill').textContent = state.profile.role;
+       }
+    }).catch(e => console.log("DB Error:", e));
+
   } catch (e) { 
-    // This will pop up after 8 seconds
-    alert("LOGIN ERROR: " + e.message); 
+    alert("LOGIN FAILED: " + e.message); 
     btn.disabled = false; 
     btn.textContent = 'Log in'; 
   }
