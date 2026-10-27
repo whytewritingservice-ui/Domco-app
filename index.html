@@ -191,7 +191,7 @@
     <h3 style="color:var(--p);">Weekly Design Contest 🎨</h3>
     <p class="muted">Design a logo for a local coffee shop. Prize: ₦10,000.</p>
     <div style="font-size:12px;margin:8px 0;color:var(--danger);font-weight:bold;">Ends in 2 days</div>
-    <button class="btn btn-sm" onclick="openContestEntry()">Submit Entry</button>
+    <button class="btn btn-sm" onclick="window.openContestEntry()">Submit Entry</button>
   </div>
 
   <!-- The Feed -->
@@ -494,8 +494,8 @@ function nav(pane) {
   if (pane === 'profile' && typeof renderProfile === 'function') renderProfile();
   if (pane === 'browse' && typeof renderGigs === 'function') renderGigs();
 if (pane === 'arena') {
-  loadArenaFeed();
-  checkAdminArena();
+  window.loadArenaFeed();
+window.checkAdminArena();
 }
   if (pane === 'chat' && typeof loadChats === 'function') loadChats();
 }
@@ -1443,7 +1443,7 @@ window.openContestEntry = function() {
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   `);
 }
-    alert("BOTTOM OF SCRIPT WORKS");
+    
 </script>
 </body>
 </html>
