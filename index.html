@@ -996,47 +996,44 @@ async function recordAdminVoiceBroadcast() {
 
 // ---- APP BOOT ----
 auth.onAuthStateChanged(async user => {
-  // If Firebase says there is no user, show landing page.
   if (!user) { 
     state.user = null; state.profile = null; showLanding(); return; 
   }
   
   state.user = user;
+
+  // 1. OPEN THE APP IMMEDIATELY (Don't wait for the database)
+  state.profile = { 
+    first: "Dominion", 
+    last: "White", 
+    email: user.email,
+    role: "client", ninApproved: true, banned: false, isAdmin: true, // Fallback admin
+    walletBalance: 0, savedGigs: []
+  };
   
+  hide('landing'); hide('authScreen'); show('mainApp');
+  if($('userPill')) $('userPill').textContent = state.profile.role; 
+  if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+  nav('browse');
+
+  // 2. FETCH THE REAL PROFILE IN THE BACKGROUND
   try {
-    // Fetch your real profile from the database
     const doc = await db.collection('users').doc(user.uid).get();
-    
-    if (!doc.exists) {
-      // Only if the database is empty, we create a temporary one.
-      alert("Profile not found in Firestore. Creating a new one.");
-      state.profile = { 
-        first: "Dominion", // <--- Changed to your real name!
-        last: "White", 
-        email: "whytewritingservice@gmail.com",
-        role: "client", ninApproved: true, banned: false, isAdmin: true,
-        walletBalance: 0, savedGigs: []
-      };
-    } else {
-      // If the profile exists, use it! (This will load Dominion White)
+    if (doc.exists) {
       state.profile = doc.data();
+      // Update the UI with your real database data
+      if($('userPill')) $('userPill').textContent = state.profile.role; 
+      if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+    } else {
+      toast("Profile not found in database. Using fallback.");
     }
-    
-    // OPEN THE APP
-    hide('landing'); 
-    hide('authScreen'); 
-    show('mainApp');
-    
-    if($('userPill')) $('userPill').textContent = state.profile.role; 
-    if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
-    nav('browse');
-    
-    loadBanks().catch(err => console.log('Bank error:', err));
-    loadGigs().catch(err => console.log('Gigs error:', err));
-    
   } catch (e) { 
-    alert("DATABASE ERROR: " + e.message); 
+    console.log("Database fetch failed: " + e.message); 
   }
+
+  // 3. LOAD OTHER DATA
+  loadBanks().catch(err => console.log('Bank error:', err));
+  loadGigs().catch(err => console.log('Gigs error:', err));
 });
 showLanding();
 </script>
