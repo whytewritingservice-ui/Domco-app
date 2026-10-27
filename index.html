@@ -397,6 +397,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
+  alert("TOP OF SCRIPT WORKS");
   /* ================= CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDdyIm2AuN8agdaF8Jbmdvrb9xfFaEZwSU",
@@ -1438,7 +1439,7 @@ window.openContestEntry = function() {
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   `);
 }
-    db.collection('arena').get().then(() => alert("✅ DATABASE WORKS! The issue is in the UI code.")).catch(e => alert("❌ DATABASE ERROR: " + e.message));
+    alert("BOTTOM OF SCRIPT WORKS");
 </script>
 </body>
 </html>
