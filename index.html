@@ -525,16 +525,22 @@ async function login() {
   const btn = $('loginBtn'); 
   btn.disabled = true; 
   btn.textContent = 'Logging in…';
-  $('loginErr').classList.add('hidden');
+  
+  if ($('loginErr')) $('loginErr').classList.add('hidden');
 
   try { 
     await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
+    
+    // Once Firebase confirms the password is correct, reload the page.
+    // The page reload will trigger onAuthStateChanged and open the app instantly.
+    window.location.reload(); 
+    
   } catch (e) { 
-    $('loginErr').textContent = "ERROR: " + e.message; 
-    $('loginErr').classList.remove('hidden'); 
+    // If the password is wrong or network fails, show a popup
+    alert("LOGIN FAILED: " + e.message); 
     btn.disabled = false; 
     btn.textContent = 'Log in'; 
-   }
+  }
   }
 
 async function forgotPass() {
