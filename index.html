@@ -1031,25 +1031,27 @@ async function recordAdminVoiceBroadcast() {
     
 // ---- ARENA COMMUNITY FEED ----
 async function loadArenaFeed() {
+  const feed = $('arenaFeed');
+  if(!feed) return;
+  
+  feed.innerHTML = '<div class="empty">Loading feed...</div>';
+  
   try {
-    // 1. Get posts WITHOUT sorting (avoids Firebase index errors)
     const snap = await db.collection('arena').get();
     
     if (snap.empty) {
-      $('arenaFeed').innerHTML = '<div class="empty">No announcements yet. Check back later!</div>';
+      feed.innerHTML = '<div class="empty">No announcements yet. Post something!</div>';
       return;
     }
 
-    // 2. Sort them manually in JavaScript
     let posts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     posts.sort((a, b) => {
       const timeA = a.createdAt ? a.createdAt.toMillis() : 0;
       const timeB = b.createdAt ? b.createdAt.toMillis() : 0;
-      return timeB - timeA; // Newest first
+      return timeB - timeA; 
     });
 
-    // 3. Display them
-    $('arenaFeed').innerHTML = posts.map(post => {
+    feed.innerHTML = posts.map(post => {
       const isLiked = (post.likes || []).includes(state.user.uid);
       const likesCount = (post.likes || []).length;
       const date = post.createdAt ? new Date(post.createdAt.toMillis()).toLocaleDateString() : 'Just now';
@@ -1060,26 +1062,74 @@ async function loadArenaFeed() {
             <div style="font-weight:800; color:var(--p);">📢 Domco Admin</div>
             <div class="muted">${date}</div>
           </div>
-          
           <p style="font-size:15px; margin-bottom:12px; white-space:pre-wrap;">${esc(post.text)}</p>
-          
           ${post.imageUrl ? `<img src="${esc(post.imageUrl)}" style="width:100%; border-radius:12px; margin-bottom:12px; max-height:300px; object-fit:cover;">` : ''}
-          
           <div style="display:flex; gap:16px; border-top:1px solid var(--border); padding-top:12px;">
             <button class="btn btn-ghost btn-sm" onclick="toggleLike('${post.id}')" style="color:${isLiked ? 'var(--danger)' : 'var(--muted)'}; border-color:transparent;">
               <i class="fas fa-heart"></i> ${likesCount} Likes
-            </button>
-            <button class="btn btn-ghost btn-sm" onclick="toast('Comments coming next!')" style="color:var(--muted); border-color:transparent;">
-              <i class="fas fa-comment"></i> Comment
             </button>
           </div>
         </div>
       `;
     }).join('');
   } catch (e) { 
-    $('arenaFeed').innerHTML = '<div class="empty">Error loading feed: ' + e.message + '</div>'; 
+    feed.innerHTML = '<div class="empty" style="color:var(--danger);">Error: ' + e.message + '</div>'; 
   }
+}
+
+async function createPost() {
+  const text = $('postText').value.trim();
+  if (!text) return toast('Write something first!');
+  
+  const btn = $('postBtn'); btn.disabled = true; btn.textContent = 'Publishing...';
+  
+  try {
+    let imageUrl = '';
+    if ($('postImage').files[0]) {
+      toast('Uploading image...');
+      imageUrl = await uploadCloudinary($('postImage').files[0], 'arena');
+    }
+
+    await db.collection('arena').add({
+      text: text,
+      imageUrl: imageUrl,
+      likes: [],
+      adminId: state.user.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    $('postText').value = '';
+    $('postImage').value = '';
+    toast('Announcement posted!');
+    loadArenaFeed(); 
+  } catch (e) { toast(e.message); } 
+  finally { btn.disabled = false; btn.textContent = 'Publish Post'; }
+}
+
+async function toggleLike(postId) {
+  const postRef = db.collection('arena').doc(postId);
+  const postDoc = await postRef.get();
+  let likes = postDoc.data().likes || [];
+  
+  if (likes.includes(state.user.uid)) {
+    likes = likes.filter(id => id !== state.user.uid);
+  } else {
+    likes.push(state.user.uid);
   }
+  
+  await postRef.update({ likes: likes });
+  loadArenaFeed();
+}
+
+function checkAdminArena() {
+  if (state.profile && state.profile.isAdmin) {
+    if ($('adminPostBox')) $('adminPostBox').classList.remove('hidden');
+  } else {
+    if ($('adminPostBox')) $('adminPostBox').classList.add('hidden');
+  }
+}
+// ---- END ARENA ----
+    
 // ---- APP BOOT ----
 auth.onAuthStateChanged(async user => {
   if (!user) { 
