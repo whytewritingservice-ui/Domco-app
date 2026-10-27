@@ -534,7 +534,10 @@ async function loadBanks() {
   try {
     const banks = await api('/api/banks');
     if($('pBank')) $('pBank').innerHTML = '<option value="">Select bank</option>' + banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
-  } catch (e) { console.log('Bank error', e); }
+  } catch (e) { 
+    console.log('Bank error', e);
+    if($('pBank')) $('pBank').innerHTML = '<option value="">❌ Error: ' + e.message + '</option>';
+  }
 }
 
 async function renderProfile() {
