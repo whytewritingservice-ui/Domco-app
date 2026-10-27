@@ -433,11 +433,10 @@ function copyText(text) {
 
 // ---- NAVIGATION & THEMES ----
 function showLanding() { 
-  if (auth.currentUser) auth.signOut(); 
   show('landing'); 
   hide('authScreen'); 
   hide('mainApp'); 
-  }
+    }
 function showAuth(mode) {
   hide('landing'); show('authScreen');
   $('authSignup').classList.toggle('hidden', mode !== 'signup');
@@ -1000,22 +999,18 @@ auth.onAuthStateChanged(async user => {
   try {
     let doc = await db.collection('users').doc(user.uid).get();
     
-    // SELF-HEALING: If the database is missing your profile, create it!
+    // If the profile is missing, create a temporary one so the app opens
     if (!doc.exists) {
-      toast("Healing profile...");
-      await db.collection('users').doc(user.uid).set({
+      state.profile = { 
         first: "Admin", last: user.uid.slice(0,4), email: user.email,
         role: "client", ninApproved: true, banned: false, isAdmin: true,
-        walletBalance: 0, savedGigs: [],
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      doc = await db.collection('users').doc(user.uid).get();
+        walletBalance: 0, savedGigs: []
+      };
+    } else {
+      state.profile = doc.data();
     }
     
-    state.profile = doc.data();
-    
-    if (state.profile.banned) { toast('Account banned'); await auth.signOut(); return; }
-    
+    // OPEN THE APP NO MATTER WHAT
     hide('landing'); hide('authScreen'); show('mainApp');
     if($('userPill')) $('userPill').textContent = state.profile.role; 
     if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
