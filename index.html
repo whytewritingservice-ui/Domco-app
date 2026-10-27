@@ -157,18 +157,33 @@
 
     <!-- ARENA -->
     <div id="paneArena" class="hidden">
-      <h2>Domco Arena 🏆</h2>
-      <p class="muted" style="margin-bottom:16px;">Compete, win prizes, and prove your skills to the community.</p>
-      <div id="arenaList">
-        <div class="item card" style="text-align:center;">
-          <h3 style="color:var(--p);">Weekly Design Contest</h3>
-          <p class="muted">Design a logo for a local coffee shop. Prize: ₦10,000.</p>
-          <div style="font-size:12px;margin:8px 0;color:var(--danger);font-weight:bold;">Ends in 2 days</div>
-          <button class="btn btn-sm" onclick="toast('Arena submissions coming soon!')">Submit Entry</button>
-        </div>
-      </div>
-    </div>
+  <h2>Domco Arena 🏆</h2>
+  <p class="muted" style="margin-bottom:16px;">Announcements, spotlights, and community updates.</p>
 
+  <!-- Admin Post Box (Only shows for Admin) -->
+  <div id="adminPostBox" class="card hidden" style="background:var(--bg); border: 2px dashed var(--p); margin-bottom:20px;">
+    <h3>Create Announcement (Admin Only)</h3>
+    <textarea id="postText" rows="3" placeholder="What do you want to announce to the community?"></textarea>
+    <label style="margin-top:8px; display:block;">Attach Image (Optional)</label>
+    <input type="file" id="postImage" accept="image/*" style="margin-bottom:12px;">
+    <button class="btn" onclick="createPost()" id="postBtn">Publish Post</button>
+  </div>
+
+  <!-- Weekly Contest Banner (Always visible) -->
+  <div class="card" style="text-align:center; border: 2px solid var(--p);">
+    <h3 style="color:var(--p);">Weekly Design Contest 🎨</h3>
+    <p class="muted">Design a logo for a local coffee shop. Prize: ₦10,000.</p>
+    <div style="font-size:12px;margin:8px 0;color:var(--danger);font-weight:bold;">Ends in 2 days</div>
+    <button class="btn btn-sm" onclick="toast('Arena submissions coming soon!')">Submit Entry</button>
+  </div>
+
+  <!-- The Feed -->
+  <h3 style="margin-top:24px;">Community Feed</h3>
+  <div id="arenaFeed">
+    <div class="empty">Loading feed...</div>
+  </div>
+    </div>
+    
     <!-- POST -->
     <div id="panePost" class="hidden">
       <h2>Create</h2>
@@ -454,6 +469,10 @@ function nav(pane) {
   if (pane === 'admin' && typeof loadAdmin === 'function') loadAdmin();
   if (pane === 'profile' && typeof renderProfile === 'function') renderProfile();
   if (pane === 'browse' && typeof renderGigs === 'function') renderGigs();
+if (pane === 'arena') {
+  loadArenaFeed();
+  checkAdminArena();
+}
   if (pane === 'chat' && typeof loadChats === 'function') loadChats();
 }
 function toggleDark() { document.body.classList.toggle('dark'); }
@@ -1009,7 +1028,98 @@ async function recordAdminVoiceBroadcast() {
     toast('Recording...');
   } catch (e) { toast('Mic denied.'); }
 }
+    
+// ---- ARENA COMMUNITY FEED ----
+async function loadArenaFeed() {
+  try {
+    const snap = await db.collection('arena').orderBy('createdAt', 'desc').limit(20).get();
+    if (snap.empty) {
+      $('arenaFeed').innerHTML = '<div class="empty">No announcements yet. Check back later!</div>';
+      return;
+    }
 
+    $('arenaFeed').innerHTML = snap.docs.map(doc => {
+      const post = doc.data();
+      const isLiked = (post.likes || []).includes(state.user.uid);
+      const likesCount = (post.likes || []).length;
+      const date = post.createdAt ? new Date(post.createdAt.toMillis()).toLocaleDateString() : 'Just now';
+      
+      return `
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-weight:800; color:var(--p);">📢 Domco Admin</div>
+            <div class="muted">${date}</div>
+          </div>
+          
+          <p style="font-size:15px; margin-bottom:12px; white-space:pre-wrap;">${esc(post.text)}</p>
+          
+          ${post.imageUrl ? `<img src="${esc(post.imageUrl)}" style="width:100%; border-radius:12px; margin-bottom:12px; max-height:300px; object-fit:cover;">` : ''}
+          
+          <div style="display:flex; gap:16px; border-top:1px solid var(--border); padding-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="toggleLike('${doc.id}')" style="color:${isLiked ? 'var(--danger)' : 'var(--muted)'}; border-color:transparent;">
+              <i class="fas fa-heart"></i> ${likesCount} Likes
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="toast('Comments coming next!')" style="color:var(--muted); border-color:transparent;">
+              <i class="fas fa-comment"></i> Comment
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) { toast('Feed error: ' + e.message); }
+}
+
+async function createPost() {
+  const text = $('postText').value.trim();
+  if (!text) return toast('Write something first!');
+  
+  const btn = $('postBtn'); btn.disabled = true; btn.textContent = 'Publishing...';
+  
+  try {
+    let imageUrl = '';
+    if ($('postImage').files[0]) {
+      toast('Uploading image...');
+      imageUrl = await uploadCloudinary($('postImage').files[0], 'arena');
+    }
+
+    await db.collection('arena').add({
+      text: text,
+      imageUrl: imageUrl,
+      likes: [],
+      adminId: state.user.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    $('postText').value = '';
+    $('postImage').value = '';
+    toast('Announcement posted!');
+    loadArenaFeed(); 
+  } catch (e) { toast(e.message); } 
+  finally { btn.disabled = false; btn.textContent = 'Publish Post'; }
+}
+
+async function toggleLike(postId) {
+  const postRef = db.collection('arena').doc(postId);
+  const postDoc = await postRef.get();
+  let likes = postDoc.data().likes || [];
+  
+  if (likes.includes(state.user.uid)) {
+    likes = likes.filter(id => id !== state.user.uid);
+  } else {
+    likes.push(state.user.uid);
+  }
+  
+  await postRef.update({ likes: likes });
+  loadArenaFeed();
+}
+
+function checkAdminArena() {
+  if (state.profile?.isAdmin) {
+    $('adminPostBox').classList.remove('hidden');
+  } else {
+    $('adminPostBox').classList.add('hidden');
+  }
+    }
 // ---- APP BOOT ----
 auth.onAuthStateChanged(async user => {
   if (!user) { 
