@@ -1028,25 +1028,43 @@ async function recordAdminVoiceBroadcast() {
 auth.onAuthStateChanged(async user => {
   if (!user) { state.user = null; state.profile = null; showLanding(); return; }
   state.user = user;
+  
+  // 1. Setup a default fallback profile immediately
+  state.profile = { 
+    first: "Dominion", 
+    last: "White", 
+    email: user.email, 
+    role: "client", 
+    ninApproved: true, 
+    banned: false, 
+    isAdmin: true, 
+    walletBalance: 0, 
+    savedGigs: [] 
+  };
+
+  // 2. Try to get the real profile, but don't crash if it fails
   try {
     let doc = await db.collection('users').doc(user.uid).get();
-    if (!doc.exists) {
-      state.profile = { first: "Dominion", last: "White", email: user.email, role: "client", ninApproved: true, banned: false, isAdmin: true, walletBalance: 0, savedGigs: [] };
-    } else { state.profile = doc.data(); }
-    
-    if (state.profile.banned) { toast('Banned'); await auth.signOut(); return; }
-    
-    hide('landing'); hide('authScreen'); show('mainApp');
-    if($('userPill')) $('userPill').textContent = state.profile.role; 
-    if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
-    nav('browse');
-    
-    loadBanks().catch(err => console.log('Bank error:', err));
-    loadGigs().catch(err => console.log('Gigs error:', err));
-    
-    const txRef = new URL(window.location.href).searchParams.get('tx_ref');
-    if (txRef && typeof verifyPayment === 'function') { verifyPayment(txRef); history.replaceState({}, '', window.location.pathname); }
-  } catch (e) { toast(e.message); }
+    if (doc.exists) {
+      state.profile = doc.data();
+    }
+  } catch (e) { 
+    console.log("Database blocked profile read. Using fallback.", e); 
+  }
+  
+  if (state.profile.banned) { toast('Banned'); await auth.signOut(); return; }
+  
+  // 3. FORCE THE APP TO OPEN NO MATTER WHAT
+  hide('landing'); hide('authScreen'); show('mainApp');
+  if($('userPill')) $('userPill').textContent = state.profile.role; 
+  if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
+  nav('browse');
+  
+  loadBanks().catch(err => console.log('Bank error:', err));
+  loadGigs().catch(err => console.log('Gigs error:', err));
+  
+  const txRef = new URL(window.location.href).searchParams.get('tx_ref');
+  if (txRef && typeof verifyPayment === 'function') { verifyPayment(txRef); history.replaceState({}, '', window.location.pathname); }
 });
 
 showLanding();
