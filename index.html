@@ -397,7 +397,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
-  alert("TOP OF SCRIPT WORKS");
+  window.onerror = function(msg, url, line) {
+  alert("🚨 CRASH DETECTED!\n\nError: " + msg + "\n\nLine Number: " + line);
+  return false;
+};
   /* ================= CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDdyIm2AuN8agdaF8Jbmdvrb9xfFaEZwSU",
