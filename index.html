@@ -523,13 +523,26 @@ async function signup() {
 async function login() {
   const btn = $('loginBtn'); 
   btn.disabled = true; 
-  btn.textContent = 'Logging in…';
+  btn.textContent = 'Connecting to Google...';
   
   try { 
-    await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
-    // No reload. The onAuthStateChanged listener below will catch this and open the app.
+    // 1. Try to login
+    const authPromise = auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value);
+    
+    // 2. Set a timer for 8 seconds
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Network Timeout: Google did not respond. Turn off Wi-Fi or check your VPN.")), 8000)
+    );
+    
+    // 3. Wait for whichever finishes first
+    await Promise.race([authPromise, timeoutPromise]);
+    
+    // If it succeeds, the button changes
+    btn.textContent = 'Success! Opening...';
+    
   } catch (e) { 
-    alert("LOGIN FAILED: " + e.message); 
+    // This will pop up after 8 seconds
+    alert("LOGIN ERROR: " + e.message); 
     btn.disabled = false; 
     btn.textContent = 'Log in'; 
   }
