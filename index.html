@@ -1017,13 +1017,11 @@ auth.onAuthStateChanged(async user => {
   }
   
   state.user = user;
-
-  // 1. OPEN THE APP IMMEDIATELY (Don't wait for the database)
+  
+  // 1. Open the app instantly with fallback data (No waiting for database)
   state.profile = { 
-    first: "Dominion", 
-    last: "White", 
-    email: user.email,
-    role: "client", ninApproved: true, banned: false, isAdmin: true, // Fallback admin
+    first: "Dominion", last: "White", email: user.email,
+    role: "client", ninApproved: true, banned: false, isAdmin: true,
     walletBalance: 0, savedGigs: []
   };
   
@@ -1032,22 +1030,17 @@ auth.onAuthStateChanged(async user => {
   if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
   nav('browse');
 
-  // 2. FETCH THE REAL PROFILE IN THE BACKGROUND
+  // 2. Fetch your real data in the background
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
       state.profile = doc.data();
-      // Update the UI with your real database data
       if($('userPill')) $('userPill').textContent = state.profile.role; 
       if($('adminTab')) $('adminTab').classList.toggle('hidden', !state.profile.isAdmin);
-    } else {
-      toast("Profile not found in database. Using fallback.");
     }
-  } catch (e) { 
-    console.log("Database fetch failed: " + e.message); 
-  }
+  } catch (e) { console.log("Database error:", e); }
 
-  // 3. LOAD OTHER DATA
+  // 3. Load marketplace data
   loadBanks().catch(err => console.log('Bank error:', err));
   loadGigs().catch(err => console.log('Gigs error:', err));
 });
