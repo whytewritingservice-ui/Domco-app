@@ -398,8 +398,11 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
   window.onerror = function(msg, url, line) {
-  alert("🚨 CRASH DETECTED!\n\nError: " + msg + "\n\nLine Number: " + line);
-  return false;
+  // Only show the popup if the user is logged in AND is an Admin
+  if (typeof state !== 'undefined' && state.profile && state.profile.isAdmin) {
+    alert("🚨 ADMIN ALERT: Code Crash!\n\nError: " + msg + "\n\nLine Number: " + line);
+  }
+  return false; // Let the browser log it to the console normally
 };
   /* ================= CONFIG ================= */
 const firebaseConfig = {
@@ -709,8 +712,7 @@ async function toggleSaveGig(gigId) {
 async function postGig() {
   if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot post a gig yet.');
   const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
-  const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
-  try {
+  try 
     let cover = ''; if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
     let portfolio = []; const pFiles = $('gPortfolio').files;
     if (pFiles.length > 0) {
@@ -735,7 +737,6 @@ async function aiWrite() {
 
 async function postJob() {
    if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval. You cannot post a job yet.');
-  const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
   const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
   try {
     await db.collection('jobs').add({
