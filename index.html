@@ -1034,9 +1034,8 @@ async function loadArenaFeed() {
   const feed = $('arenaFeed');
   if(!feed) return;
   
-  feed.innerHTML = '<div class="empty">Loading feed...</div>';
-  
   try {
+    // Ask Firebase for the posts
     const snap = await db.collection('arena').get();
     
     if (snap.empty) {
@@ -1073,61 +1072,11 @@ async function loadArenaFeed() {
       `;
     }).join('');
   } catch (e) { 
-    feed.innerHTML = '<div class="empty" style="color:var(--danger);">Error: ' + e.message + '</div>'; 
+    // 👈 THIS WILL POP UP AN ALERT IF FIREBASE BLOCKS US
+    alert("ARENA DATABASE ERROR: " + e.message); 
+    feed.innerHTML = '<div class="empty" style="color:red;">Error loading feed.</div>'; 
   }
-}
-
-async function createPost() {
-  const text = $('postText').value.trim();
-  if (!text) return toast('Write something first!');
-  
-  const btn = $('postBtn'); btn.disabled = true; btn.textContent = 'Publishing...';
-  
-  try {
-    let imageUrl = '';
-    if ($('postImage').files[0]) {
-      toast('Uploading image...');
-      imageUrl = await uploadCloudinary($('postImage').files[0], 'arena');
     }
-
-    await db.collection('arena').add({
-      text: text,
-      imageUrl: imageUrl,
-      likes: [],
-      adminId: state.user.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    $('postText').value = '';
-    $('postImage').value = '';
-    toast('Announcement posted!');
-    loadArenaFeed(); 
-  } catch (e) { toast(e.message); } 
-  finally { btn.disabled = false; btn.textContent = 'Publish Post'; }
-}
-
-async function toggleLike(postId) {
-  const postRef = db.collection('arena').doc(postId);
-  const postDoc = await postRef.get();
-  let likes = postDoc.data().likes || [];
-  
-  if (likes.includes(state.user.uid)) {
-    likes = likes.filter(id => id !== state.user.uid);
-  } else {
-    likes.push(state.user.uid);
-  }
-  
-  await postRef.update({ likes: likes });
-  loadArenaFeed();
-}
-
-function checkAdminArena() {
-  if (state.profile && state.profile.isAdmin) {
-    if ($('adminPostBox')) $('adminPostBox').classList.remove('hidden');
-  } else {
-    if ($('adminPostBox')) $('adminPostBox').classList.add('hidden');
-  }
-}
 // ---- END ARENA ----
     
 // ---- APP BOOT ----
