@@ -191,7 +191,7 @@
     <h3 style="color:var(--p);">Weekly Design Contest 🎨</h3>
     <p class="muted">Design a logo for a local coffee shop. Prize: ₦10,000.</p>
     <div style="font-size:12px;margin:8px 0;color:var(--danger);font-weight:bold;">Ends in 2 days</div>
-    <button class="btn btn-sm" onclick="window.openContestEntry()">Submit Entry</button>
+    <button class="btn btn-sm" onclick="openContestEntry()">Submit Entry</button>
   </div>
 
   <!-- The Feed -->
@@ -494,9 +494,9 @@ function nav(pane) {
   if (pane === 'profile' && typeof renderProfile === 'function') renderProfile();
   if (pane === 'browse' && typeof renderGigs === 'function') renderGigs();
 if (pane === 'arena') {
-  window.loadArenaFeed();
-window.checkAdminArena();
-}
+  loadArenaFeed();
+  checkAdminArena();
+  }
   if (pane === 'chat' && typeof loadChats === 'function') loadChats();
 }
 function toggleDark() { document.body.classList.toggle('dark'); }
@@ -1360,10 +1360,9 @@ auth.onAuthStateChanged(async user => {
 });
 showLanding();
     // ==========================================
-// FINAL ARENA OVERRIDE
+// FINAL ARENA FUNCTIONS
 // ==========================================
-
-window.checkAdminArena = function() {
+function checkAdminArena() {
   if (state.profile && state.profile.isAdmin) {
     if ($('adminPostBox')) $('adminPostBox').classList.remove('hidden');
   } else {
@@ -1371,7 +1370,7 @@ window.checkAdminArena = function() {
   }
 }
 
-window.loadArenaFeed = function() {
+function loadArenaFeed() {
   const feed = $('arenaFeed');
   if (!feed) return;
   
@@ -1433,7 +1432,7 @@ window.loadArenaFeed = function() {
   });
 }
 
-window.openContestEntry = function() {
+function openContestEntry() {
   openModal(`
     <h2>Weekly Contest Entry 🎨</h2>
     <p class="muted" style="margin-bottom:12px;">Submit your design for the coffee shop logo. Prize: ₦10,000.</p>
@@ -1442,7 +1441,7 @@ window.openContestEntry = function() {
     <button class="btn" onclick="submitContest()">Submit Entry</button>
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   `);
-}
+  }
     
 </script>
 </body>
