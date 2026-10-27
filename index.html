@@ -164,8 +164,25 @@
   <div id="adminPostBox" class="card hidden" style="background:var(--bg); border: 2px dashed var(--p); margin-bottom:20px;">
     <h3>Create Announcement (Admin Only)</h3>
     <textarea id="postText" rows="3" placeholder="What do you want to announce to the community?"></textarea>
-    <label style="margin-top:8px; display:block;">Attach Image (Optional)</label>
-    <input type="file" id="postImage" accept="image/*" style="margin-bottom:12px;">
+    
+    <div class="grid-2" style="margin-top:8px;">
+      <div>
+        <label style="display:block; margin-bottom:4px; font-size:11px;">Attach Image</label>
+        <input type="file" id="postImage" accept="image/*" style="margin-bottom:0; padding:8px;">
+      </div>
+      <div>
+        <label style="display:block; margin-bottom:4px; font-size:11px;">Upload Voice Note</label>
+        <input type="file" id="arenaVoiceFile" accept="audio/*" style="margin-bottom:0; padding:8px;">
+      </div>
+    </div>
+
+    <label style="margin-top:12px; display:block;">Add a Poll (Optional - separate options with commas)</label>
+    <input id="postPoll" placeholder="Option 1, Option 2, Option 3" style="margin-bottom:12px;">
+    
+    <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:600; color:var(--p);">
+      <input type="checkbox" id="postPin" style="width:auto;"> 📌 Pin this post to the top
+    </label>
+    
     <button class="btn" onclick="createPost()" id="postBtn">Publish Post</button>
   </div>
 
@@ -1030,14 +1047,12 @@ async function recordAdminVoiceBroadcast() {
 }
     
 // ---- ARENA COMMUNITY FEED ----
-    // ---- ARENA COMMUNITY FEED ----
 function loadArenaFeed() {
   const feed = $('arenaFeed');
   if(!feed) return;
   
   feed.innerHTML = '<div class="empty">Loading feed...</div>';
   
-  // Fetch posts without using orderBy (prevents index errors)
   db.collection('arena').get().then(snap => {
     if (snap.empty) {
       feed.innerHTML = '<div class="empty">No announcements yet. Post something!</div>';
@@ -1046,8 +1061,10 @@ function loadArenaFeed() {
 
     let posts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Sort newest first
+    // Sort: Pinned first, then newest
     posts.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
       const timeA = a.createdAt ? a.createdAt.toMillis() : 0;
       const timeB = b.createdAt ? b.createdAt.toMillis() : 0;
       return timeB - timeA; 
@@ -1059,14 +1076,24 @@ function loadArenaFeed() {
       const date = post.createdAt ? new Date(post.createdAt.toMillis()).toLocaleDateString() : 'Just now';
       
       return `
-        <div class="card" style="margin-bottom:16px;">
+        <div class="card" style="margin-bottom:16px; ${post.pinned ? 'border: 2px solid var(--p);' : ''}">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:800; color:var(--p);">📢 Domco Admin</div>
-            <div class="muted">${date}</div>
+            <div style="font-weight:800; color:var(--p);">
+              ${post.pinned ? '📌 ' : ''}📢 Domco Admin
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+               <span class="muted">${date}</span>
+               ${state.profile.isAdmin ? `<button onclick="deleteArenaPost('${post.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;"><i class="fas fa-trash"></i></button>` : ''}
+            </div>
           </div>
           <p style="font-size:15px; margin-bottom:12px; white-space:pre-wrap;">${esc(post.text)}</p>
-          ${post.imageUrl ? `<img src="${esc(post.imageUrl)}" style="width:100%; border-radius:12px; margin-bottom:12px; max-height:300px; object-fit:cover;">` : ''}
           
+          ${post.imageUrl ? `<img src="${esc(post.imageUrl)}" onclick="window.open('${esc(post.imageUrl)}', '_blank')" style="width:100%; border-radius:12px; margin-bottom:12px; max-height:300px; object-fit:cover; cursor:pointer;">` : ''}
+          
+          ${post.audioUrl ? `<audio controls src="${esc(post.audioUrl)}" style="width:100%; margin-bottom:12px;"></audio>` : ''}
+          
+          ${post.poll ? renderPoll(post.id, post.poll) : ''}
+
           <div style="display:flex; gap:16px; border-top:1px solid var(--border); padding-top:12px;">
             <button class="btn btn-ghost btn-sm" onclick="toggleLike('${post.id}')" style="color:${isLiked ? 'var(--danger)' : 'var(--muted)'}; border-color:transparent;">
               <i class="fas fa-heart"></i> ${likesCount} Likes
@@ -1093,7 +1120,8 @@ function checkAdminArena() {
 
 async function createPost() {
   const text = $('postText').value.trim();
-  if (!text) return toast('Write something first!');
+  const voiceFile = $('arenaVoiceFile').files[0];
+  if (!text && !voiceFile) return toast('Write something or upload a voice note!');
   
   const btn = $('postBtn'); btn.disabled = true; btn.textContent = 'Publishing...';
   
@@ -1104,18 +1132,42 @@ async function createPost() {
       imageUrl = await uploadCloudinary($('postImage').files[0], 'arena');
     }
 
+    let audioUrl = '';
+    if (voiceFile) {
+      toast('Uploading voice note...');
+      audioUrl = await uploadCloudinary(voiceFile, 'arena_voice');
+    }
+
+    let pollData = null;
+    const pollInput = $('postPoll') ? $('postPoll').value.trim() : '';
+    if (pollInput) {
+      const options = pollInput.split(',').map(o => o.trim()).filter(o => o);
+      if (options.length >= 2) {
+        pollData = { options: options.map(o => ({ text: o, votes: 0 })), voters: [] };
+      }
+    }
+
     await db.collection('arena').add({
-      text: text, imageUrl: imageUrl, likes: [],
-      adminId: state.user.uid,
+      text: text, imageUrl: imageUrl, audioUrl: audioUrl, likes: [],
+      poll: pollData, pinned: $('postPin').checked, adminId: state.user.uid,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
     $('postText').value = '';
     $('postImage').value = '';
+    $('arenaVoiceFile').value = '';
+    $('postPoll').value = '';
+    $('postPin').checked = false;
+    
     toast('Announcement posted!');
     loadArenaFeed(); 
   } catch (e) { toast(e.message); } 
   finally { btn.disabled = false; btn.textContent = 'Publish Post'; }
+}
+
+async function deleteArenaPost(postId) {
+  if(!confirm('Delete this post?')) return;
+  try { await db.collection('arena').doc(postId).delete(); toast('Deleted'); loadArenaFeed(); } catch(e) { toast(e.message); }
 }
 
 async function toggleLike(postId) {
@@ -1123,48 +1175,81 @@ async function toggleLike(postId) {
   const postDoc = await postRef.get();
   let likes = postDoc.data().likes || [];
   
-  if (likes.includes(state.user.uid)) {
-    likes = likes.filter(id => id !== state.user.uid);
-  } else {
-    likes.push(state.user.uid);
-  }
+  if (likes.includes(state.user.uid)) likes = likes.filter(id => id !== state.user.uid);
+  else likes.push(state.user.uid);
   
   await postRef.update({ likes: likes });
   loadArenaFeed();
 }
 
-// ---- COMMENTS SYSTEM ----
+function renderPoll(postId, poll) {
+  const hasVoted = poll.voters && poll.voters.includes(state.user.uid);
+  const totalVotes = poll.options.reduce((sum, opt) => sum + opt.votes, 0) || 1;
+  
+  return `
+    <div style="background:var(--bg); padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border);">
+      <div style="font-weight:800; font-size:13px; margin-bottom:10px; color:var(--p);">🗳️ COMMUNITY POLL</div>
+      ${poll.options.map((opt, idx) => {
+        const percent = Math.round((opt.votes / totalVotes) * 100);
+        return `<div style="margin-bottom:10px; cursor:${hasVoted ? 'default' : 'pointer'};" onclick="${hasVoted ? '' : `votePoll('${postId}', ${idx})`}">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; font-weight:${hasVoted ? '600' : '400'};">
+              <span>${esc(opt.text)}</span>
+              ${hasVoted ? `<span>${percent}% (${opt.votes})</span>` : '<i class="fas fa-circle-notch" style="font-size:10px; opacity:0.5;"></i>'}
+            </div>
+            <div style="background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
+              <div style="background:var(--p); width:${hasVoted ? percent : 0}%; height:100%; transition:0.3s;"></div>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function votePoll(postId, optionIndex) {
+  try {
+    const postRef = db.collection('arena').doc(postId);
+    const postDoc = await postRef.get();
+    const post = postDoc.data();
+    if (post.poll.voters && post.poll.voters.includes(state.user.uid)) return toast('You already voted!');
+
+    const newOptions = [...post.poll.options];
+    newOptions[optionIndex].votes += 1;
+    const newVoters = [...(post.poll.voters || []), state.user.uid];
+
+    await postRef.update({ 'poll.options': newOptions, 'poll.voters': newVoters });
+    loadArenaFeed();
+  } catch(e) { toast(e.message); }
+}
+
+// ---- COMMENTS ----
 async function openComments(postId) {
   openModal(`<h2>Comments</h2><div id="commentList" class="empty">Loading...</div>
-    <div style="display:flex; gap:8px; margin-top:16px;">
+    <div style="display:flex; gap:6px; margin-top:16px; align-items:center;">
       <input id="commentInput" placeholder="Write a comment..." style="margin:0; flex:1;">
-      <button class="btn btn-sm" style="margin:0;" onclick="submitComment('${postId}')">Send</button>
+      <button id="commentMicBtn" class="btn btn-ghost" style="width:auto; margin:0; padding:10px 14px;" onclick="recordVoiceComment('${postId}')"><i class="fas fa-microphone"></i></button>
+      <button class="btn" style="width:auto; margin:0; padding:0 16px;" onclick="submitComment('${postId}')">Send</button>
     </div>
-    <button class="btn btn-ghost" style="margin-top:12px;" onclick="closeModal()">Close</button>
-  `);
-
+    <button class="btn btn-ghost" style="margin-top:12px;" onclick="closeModal()">Close</button>`);
   loadComments(postId);
 }
 
 async function loadComments(postId) {
   const list = $('commentList');
   if(!list) return;
-
-  // Fetch comments
   const snap = await db.collection('arena').doc(postId).collection('comments').get();
   
-  if(snap.empty) {
-    list.innerHTML = '<div class="empty">No comments yet. Be the first!</div>';
-    return;
-  }
-
+  if(snap.empty) { list.innerHTML = '<div class="empty">No comments yet.</div>'; return; }
   let comments = snap.docs.map(doc => doc.data());
-  comments.sort((a,b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+  comments.sort((a,b) => (a.createdAt?.toMillis()||0) - (b.createdAt?.toMillis()||0));
 
   list.innerHTML = comments.map(c => `
-    <div style="background:var(--bg); padding:8px; border-radius:8px; margin-bottom:8px;">
-      <strong style="color:var(--p); font-size:12px;">${esc(c.userName)}</strong>
-      <p style="font-size:14px; margin-top:4px;">${esc(c.text)}</p>
+    <div style="background:var(--bg); padding:8px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <strong style="color:var(--p); font-size:12px;">${esc(c.userName)}</strong>
+        <button class="btn btn-sm btn-ghost" style="padding:2px 6px; font-size:10px; margin:0; border:none;" onclick="startChat('${c.userId}', '${jsEsc(c.userName)}')">💼 Hire</button>
+      </div>
+      ${c.type === 'voice' 
+        ? `<audio controls src="${esc(c.audioUrl)}" style="width:100%; height:35px;"></audio>` 
+        : `<p style="font-size:14px; margin-top:4px;">${esc(c.text)}</p>`}
     </div>
   `).join('');
 }
@@ -1173,53 +1258,65 @@ async function submitComment(postId) {
   const input = $('commentInput');
   const text = input.value.trim();
   if(!text) return;
-
-  input.value = ''; // clear input immediately
+  input.value = ''; 
   try {
     await db.collection('arena').doc(postId).collection('comments').add({
-      text: text,
-      userId: state.user.uid,
+      text: text, type: 'text', userId: state.user.uid,
       userName: state.profile.first + ' ' + state.profile.last,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    
-    // Reload comments without closing the modal
     loadComments(postId);
   } catch(e) { toast('Error: ' + e.message); }
 }
 
+let commentMediaRecorder; let commentAudioChunks = [];
+async function recordVoiceComment(postId) {
+  const btn = $('commentMicBtn');
+  if (commentMediaRecorder && commentMediaRecorder.state === 'recording') {
+    commentMediaRecorder.stop(); btn.style.background = 'transparent'; return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    commentMediaRecorder = new MediaRecorder(stream); commentAudioChunks = [];
+    commentMediaRecorder.ondataavailable = e => commentAudioChunks.push(e.data);
+    commentMediaRecorder.onstop = async () => {
+      toast('Uploading voice...');
+      const blob = new Blob(commentAudioChunks, { type: 'audio/webm' });
+      const url = await uploadCloudinary(new File([blob], "v.webm"), 'arena_voice_comments');
+      if (url) {
+        await db.collection('arena').doc(postId).collection('comments').add({
+          audioUrl: url, type: 'voice', userId: state.user.uid,
+          userName: state.profile.first + ' ' + state.profile.last,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        loadComments(postId);
+      }
+    };
+    commentMediaRecorder.start(); btn.style.background = 'var(--danger)'; toast('Recording...');
+  } catch (e) { toast('Mic access denied.'); }
+}
+
 // ---- CONTEST ENTRY ----
 function openContestEntry() {
-  openModal(`
-    <h2>Weekly Contest Entry 🎨</h2>
-    <p class="muted" style="margin-bottom:12px;">Submit your design for the coffee shop logo. Prize: ₦10,000.</p>
-    <label>Upload your design (Image)</label>
-    <input type="file" id="contestFile" accept="image/*">
-    <button class="btn" onclick="submitContest()">Submit Entry</button>
-    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-  `);
+  openModal(`<h2>Weekly Contest Entry 🎨</h2><p class="muted" style="margin-bottom:12px;">Submit your design for the coffee shop logo. Prize: ₦10,000.</p>
+    <label>Upload your design (Image)</label><input type="file" id="contestFile" accept="image/*">
+    <button class="btn" onclick="submitContest()">Submit Entry</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`);
 }
 
 async function submitContest() {
   const file = $('contestFile').files[0];
   if(!file) return toast('Please select an image');
-  
   try {
     toast('Uploading entry...');
     const url = await uploadCloudinary(file, 'contest');
-    
-    // Post the contest entry to the feed
     await db.collection('arena').add({
       text: `🎨 Contest Entry submitted by ${state.profile.first}!`,
       imageUrl: url, likes: [], adminId: state.user.uid,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    
-    closeModal();
-    toast('Entry submitted successfully! Good luck!');
-    loadArenaFeed();
+    closeModal(); toast('Entry submitted!'); loadArenaFeed();
   } catch(e) { toast(e.message); }
-    }
+  }
 // ---- END ARENA ----
     
 // ---- APP BOOT ----
