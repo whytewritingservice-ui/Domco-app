@@ -1030,13 +1030,23 @@ async function recordAdminVoiceBroadcast() {
 }
     
 // ---- ARENA COMMUNITY FEED ----
-async function loadArenaFeed() {
+    async function loadArenaFeed() {
   const feed = $('arenaFeed');
   if(!feed) return;
   
+  feed.innerHTML = '<div class="empty">Loading feed...</div>';
+  
   try {
-    // Ask Firebase for the posts
-    const snap = await db.collection('arena').get();
+    // 1. This forces the app to wait a MAXIMUM of 5 seconds for Firebase
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Database timeout. Please check your Firestore rules.")), 5000)
+    );
+    
+    // 2. Ask Firebase for the posts
+    const fetchPosts = db.collection('arena').get();
+    
+    // 3. Race them! (If Firebase takes longer than 5 seconds, it throws an error)
+    const snap = await Promise.race([fetchPosts, timeout]);
     
     if (snap.empty) {
       feed.innerHTML = '<div class="empty">No announcements yet. Post something!</div>';
@@ -1072,9 +1082,8 @@ async function loadArenaFeed() {
       `;
     }).join('');
   } catch (e) { 
-    // 👈 THIS WILL POP UP AN ALERT IF FIREBASE BLOCKS US
-    alert("ARENA DATABASE ERROR: " + e.message); 
-    feed.innerHTML = '<div class="empty" style="color:red;">Error loading feed.</div>'; 
+    // If it times out, it will show you THIS instead of spinning forever
+    feed.innerHTML = '<div class="empty" style="color:red; font-weight:bold;">❌ ' + e.message + '</div>'; 
   }
     }
 // ---- END ARENA ----
