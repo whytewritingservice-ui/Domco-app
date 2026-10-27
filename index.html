@@ -367,13 +367,23 @@
 <script>
 /* ================= CONFIG ================= */
 const firebaseConfig = {
-  apiKey: "AIzaSyBAAtfdRcwmswgf2Rip1eh3ndP_FitlfdM",
-  authDomain: "domco-hub.firebaseapp.com",
-  projectId: "domco-hub",
-  storageBucket: "domco-hub.firebasestorage.app",
-  messagingSenderId: "1043662403866",
-  appId: "1:1043662403866:web:d99e1c1018c14a816814a3"
+  // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDdyIm2AuN8agdaF8Jbmdvrb9xfFaEZwSU",
+  authDomain: "domco-hub-v2.firebaseapp.com",
+  projectId: "domco-hub-v2",
+  storageBucket: "domco-hub-v2.firebasestorage.app",
+  messagingSenderId: "139587038783",
+  appId: "1:139587038783:web:7d9f1d654b8154826a528a"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 const BACKEND = "https://domco-backend.onrender.com"; 
 const CLOUD = "owgx72d6"; 
 const PRESET = "ec5pvufi"; 
