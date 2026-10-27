@@ -533,12 +533,10 @@ async function forgotPass() {
 async function loadBanks() {
   try {
     const banks = await api('/api/banks');
+    state.banks = banks; // 👈 Save the banks to memory
     if($('pBank')) $('pBank').innerHTML = '<option value="">Select bank</option>' + banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
-  } catch (e) { 
-    console.log('Bank error', e);
-    if($('pBank')) $('pBank').innerHTML = '<option value="">❌ Error: ' + e.message + '</option>';
+  } catch (e) { console.log('Bank error', e); }
   }
-}
 
 async function renderProfile() {
   if (!state.profile) return;
@@ -706,7 +704,32 @@ async function verifyPayment(txRef) {
 
 function openFundWallet() { openModal(`<h2>Fund Wallet</h2><label>Amount ₦</label><input id="fundAmt" type="number" min="100"><button class="btn" onclick="doFundWallet()">Proceed</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
 async function doFundWallet() { const amt = Number($('fundAmt').value); if(!amt || amt < 100) return toast('Min ₦100'); try { closeModal(); toast('Creating payment...'); const d = await api('/api/create-payment', { method: 'POST', body: JSON.stringify({ amount: amt, purpose: 'wallet' }) }); window.location.href = d.paymentLink; } catch(e) { toast(e.message); } }
-async function openWithdraw() { if(!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval.'); openModal(`<h2>Withdraw</h2><label>Amount ₦</label><input id="wdAmt" type="number" min="100"><label>Bank Code</label><input id="wdBank" placeholder="058"><label>Account Number</label><input id="wdAcct" maxlength="10"><button class="btn" onclick="doWithdraw()">Withdraw</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
+async function openWithdraw() { 
+  if(!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval.'); 
+  
+  // Create the dropdown options from the saved bank list
+  let bankOptions = '<option value="">Select bank...</option>';
+  if (state.banks && state.banks.length > 0) {
+    bankOptions += state.banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
+  }
+
+  openModal(`
+    <h2>Withdraw Funds</h2>
+    <label>Amount ₦</label>
+    <input id="wdAmt" type="number" min="100">
+    
+    <label>Select Bank</label>
+    <select id="wdBank" style="width:100%; padding:12px; border-radius:10px; margin-bottom:8px; background:var(--bg); color:var(--text); border:1px solid var(--border);">
+      ${bankOptions}
+    </select>
+    
+    <label>Account Number (10 digits)</label>
+    <input id="wdAcct" maxlength="10">
+    
+    <button class="btn" onclick="doWithdraw()">Withdraw</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `); 
+  }
 async function doWithdraw() { try { const r = await api('/api/withdraw-wallet', { method: 'POST', body: JSON.stringify({ amount: Number($('wdAmt').value), bankCode: $('wdBank').value, accountNumber: $('wdAcct').value }) }); closeModal(); toast(r.message || 'Withdrawal initiated'); loadMyThings(); } catch (e) { toast(e.message); } }
 
 // ---- DASHBOARD & INVOICES ----
