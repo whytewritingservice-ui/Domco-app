@@ -430,7 +430,12 @@ function copyText(text) {
 }
 
 // ---- NAVIGATION & THEMES ----
-function showLanding() { show('landing'); hide('authScreen'); hide('mainApp'); }
+function showLanding() { 
+  if (auth.currentUser) auth.signOut(); 
+  show('landing'); 
+  hide('authScreen'); 
+  hide('mainApp'); 
+  }
 function showAuth(mode) {
   hide('landing'); show('authScreen');
   $('authSignup').classList.toggle('hidden', mode !== 'signup');
@@ -518,13 +523,16 @@ async function login() {
   const btn = $('loginBtn'); 
   btn.disabled = true; 
   btn.textContent = 'Logging in…';
+  $('loginErr').classList.add('hidden');
+
   try { 
     await auth.signInWithEmailAndPassword($('loginEmail').value.trim(), $('loginPass').value); 
   } catch (e) { 
-    toast("LOGIN ERROR: " + e.message); // Using toast instead of alert
+    $('loginErr').textContent = "ERROR: " + e.message; 
+    $('loginErr').classList.remove('hidden'); 
     btn.disabled = false; 
     btn.textContent = 'Log in'; 
-  }
+   }
   }
 
 async function forgotPass() {
