@@ -494,7 +494,7 @@ function nav(pane) {
   if (pane === 'profile' && typeof renderProfile === 'function') renderProfile();
   if (pane === 'browse' && typeof renderGigs === 'function') renderGigs();
 if (pane === 'arena') {
-  loadArenaFeed();
+  renderArena();
   checkAdminArena();
   }
   if (pane === 'chat' && typeof loadChats === 'function') loadChats();
@@ -1360,7 +1360,7 @@ auth.onAuthStateChanged(async user => {
 });
 showLanding();
     // ==========================================
-// FINAL ARENA FUNCTIONS
+// FINAL ARENA FUNCTIONS (RENAMED)
 // ==========================================
 function checkAdminArena() {
   if (state.profile && state.profile.isAdmin) {
@@ -1370,7 +1370,7 @@ function checkAdminArena() {
   }
 }
 
-function loadArenaFeed() {
+function renderArena() {
   const feed = $('arenaFeed');
   if (!feed) return;
   
