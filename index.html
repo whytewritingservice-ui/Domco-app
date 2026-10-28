@@ -999,20 +999,58 @@ function openBidModal(jobId, jobTitle, clientId) {
 async function submitBid(jobId, clientId) {
   const price = Number($('bidPrice').value);
   const proposal = $('bidProposal').value.trim();
-  if(!price || !proposal) return toast('Fill all fields');
+  const voiceFile = $('bidVoice').files[0];
+  
+  if(!price) return toast('Please enter a price.');
+  if(!proposal && !voiceFile) return toast('Please write a proposal or upload a voice note.');
+
+  const btn = $('bidBtn'); btn.disabled = true; btn.textContent = 'Checking limit...';
   
   try {
-    toast('Sending bid...');
+    // 🚨 THE 10 BIDS PER WEEK LIMIT CHECK
+    const bidsSnap = await db.collection('bids').where('freelancerId', '==', state.user.uid).get();
+    const now = Date.now();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    
+    // Count how many bids were created in the last 7 days
+    const recentBids = bidsSnap.docs.filter(doc => {
+      const createdAt = doc.data().createdAt;
+      return createdAt && (now - createdAt.toMillis() < oneWeek);
+    });
+
+    if (recentBids.length >= 10) {
+      btn.disabled = false; 
+      btn.textContent = 'Send Bid';
+      return toast('🚨 Weekly limit reached! You can only submit 10 bids per week.');
+    }
+
+    // If under 10, proceed with the bid
+    btn.textContent = 'Sending...';
+    let audioUrl = '';
+    if (voiceFile) {
+      toast('Uploading voice pitch...');
+      audioUrl = await uploadCloudinary(voiceFile, 'bid_voices');
+    }
+
     await db.collection('bids').add({
       jobId, clientId, freelancerId: state.user.uid,
       freelancerName: state.profile.first + ' ' + state.profile.last,
-      price, proposal, status: 'pending',
+      price, 
+      proposal: proposal || '(Voice Note Pitch)', 
+      audioUrl: audioUrl,
+      status: 'pending',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    closeModal(); toast('Bid submitted!');
+    
+    closeModal(); 
+    toast('Bid submitted!');
     loadMyThings();
-  } catch(e) { toast(e.message); }
-}
+  } catch(e) { 
+    toast(e.message); 
+    btn.disabled = false;
+    btn.textContent = 'Send Bid';
+  }
+    }
 
 async function acceptBid(bidId, jobId, price, freelancerId) {
   if(!confirm(`Accept bid for ₦${price}? This will start the escrow process.`)) return;
