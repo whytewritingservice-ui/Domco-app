@@ -94,6 +94,7 @@
   </div>
   <button class="btn" style="background:#fff;color:var(--p);max-width:300px;margin:0 auto;" onclick="showAuth('signup')">Get Started 🚀</button>
   <button class="btn" style="background:transparent;border:1px solid #fff;color:#fff;max-width:300px;margin:8px auto 0;" onclick="showAuth('login')">I already have an account</button>
+  <div id="featuredUsers" style="max-width:400px; margin:20px auto 0; display:flex; flex-wrap:wrap; justify-content:center; gap:10px;"></div>
 </div>
 
 <!-- 2. AUTH -->
@@ -310,6 +311,7 @@
           <button class="btn btn-ghost" onclick="openFundWallet()">Fund Wallet</button>
           <button class="btn btn-ghost" onclick="openWithdraw()">Withdraw</button>
         </div>
+        <button class="btn" style="background:linear-gradient(135deg, #FFD700, #DAA520); color:black; margin-top:8px; font-weight:900;" onclick="buyGoldBadge()">✨ Buy Gold Badge (₦2,000)</button>
         <button class="btn" style="margin-top:8px;" onclick="shareProfile()">Share Profile</button>
         <button class="btn" style="background:#f59e0b;margin-top:8px;" onclick="shareReferral()">🎁 Copy Referral Link</button>
         <button class="btn btn-ghost" style="margin-top:8px;" onclick="openSupportTicket()">🎟️ Support Ticket</button>
@@ -541,7 +543,17 @@ async function loadBanks() {
 async function renderProfile() {
   if (!state.profile) return;
   const p = state.profile;
-  $('profName').textContent = (p.first || '') + ' ' + (p.last || '');
+  let badgeHtml = '';
+const now = Date.now();
+const isExpired = p.badgeExpiresAt && now > p.badgeExpiresAt;
+
+if (p.isPremium && !isExpired) badgeHtml = ' <span class="gold-badge">✨ Gold</span>';
+if (p.badge === 'gold' && !isExpired) badgeHtml = ' <span class="gold-badge">✨ Gold</span>';
+if (p.badge === 'diamond' && !isExpired) badgeHtml = ' <span class="diamond-badge">💎 Diamond</span>';
+if (p.badge === 'elite' && !isExpired) badgeHtml = ' <span class="elite-badge">👑 Elite</span>';
+
+let ratingHtml = p.averageRating ? `<div style="font-size:12px; color:var(--warn); margin-top:4px;">⭐ ${p.averageRating} (${p.totalReviews} reviews)</div>` : '';
+$('profName').innerHTML = (p.first || '') + ' ' + (p.last || '') + badgeHtml + ratingHtml;
   $('profRole').textContent = p.role;
   if (p.pfpUrl) $('pfpBox').style.backgroundImage = `url(${p.pfpUrl})`;
   $('pSkills').value = p.skills || ''; $('pEdu').value = p.education || ''; $('pExp').value = p.experience || '';
@@ -1054,7 +1066,7 @@ async function loadAdmin() {
     // Disputes / Active Jobs
     const jobsSnap = await db.collection('jobs').get(); 
     const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed'].includes(d.data().status));
-    $('aDisputes').innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' : activeJobs.map(d => { 
+    $('aDisputes').innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' : activeJobs.map(d => { const j = d.data(); return `<div class="item"><div style="font-weight:800">${esc(j.title)}</div><div class="muted">Status: ${j.status}</div><div class="price">${ngn(j.amount)}</div><button class="btn btn-sm" onclick="api('/api/release-escrow',{method:'POST',body:JSON.stringify({jobId:'${d.id}',tip:0})}).then(()=>{toast('Released');loadAdmin()})">Force Release</button><button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Refunded');loadAdmin()})">Refund Client</button></div>`; }).join('');
       const j = d.data(); 
       return `<div class="item">
         <div style="font-weight:800">${esc(j.title)}</div>
@@ -1135,6 +1147,98 @@ async function recordAdminVoiceBroadcast() {
   } catch (e) { toast('Mic denied.'); } 
 }
 
+  // ---- BADGES, REVIEWS, AND LANDING PAGE ----
+function openReviewModal(jobId, freelancerId, jobTitle) {
+  openModal(`
+    <h2>Leave a Review</h2>
+    <p class="muted" style="margin-bottom:12px;">How was your experience on "${jobTitle}"?</p>
+    <label>Rating</label>
+    <select id="revStars" style="width:100%; padding:12px; border-radius:10px; margin-bottom:8px; background:var(--bg); color:var(--text); border:1px solid var(--border);">
+      <option value="5">⭐⭐⭐⭐⭐ (5 - Excellent)</option>
+      <option value="4">⭐⭐⭐⭐ (4 - Good)</option>
+      <option value="3">⭐⭐⭐ (3 - Average)</option>
+      <option value="2">⭐⭐ (2 - Poor)</option>
+      <option value="1">⭐ (1 - Terrible)</option>
+    </select>
+    <label>Comment</label>
+    <textarea id="revText" rows="3" placeholder="Tell others what it was like..."></textarea>
+    <button class="btn" onclick="submitReview('${jobId}', '${freelancerId}')">Submit</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+async function submitReview(jobId, freelancerId) {
+  const stars = Number($('revStars').value);
+  const text = $('revText').value.trim();
+  if(!text) return toast('Please write a comment.');
+  
+  try {
+    toast('Submitting...');
+    await db.collection('reviews').add({ jobId, freelancerId, clientId: state.user.uid, clientName: state.profile.first + ' ' + state.profile.last, stars, text, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+    const fDoc = await db.collection('users').doc(freelancerId).get();
+    const fData = fDoc.data();
+    const newTotal = (fData.totalReviews || 0) + 1;
+    const newSum = (fData.totalStars || 0) + stars;
+    const average = (newSum / newTotal).toFixed(1);
+
+    await db.collection('users').doc(freelancerId).update({ totalReviews: newTotal, totalStars: newSum, averageRating: average });
+    closeModal(); toast('Review submitted! ⭐');
+    checkBadgeEligibility(freelancerId, newTotal, average);
+  } catch(e) { toast(e.message); }
+}
+
+async function checkBadgeEligibility(freelancerId, totalReviews, average) {
+  let newBadge = null;
+  if (totalReviews >= 50 && average >= 4.9) newBadge = 'elite';
+  else if (totalReviews >= 15 && average >= 4.8) newBadge = 'diamond';
+  else if (totalReviews >= 5 && average >= 4.5) newBadge = 'gold';
+
+  if (newBadge) {
+    // Set badge to expire in 1 year for earned badges
+    const expiresAt = Date.now() + (365 * 24 * 60 * 60 * 1000);
+    await db.collection('users').doc(freelancerId).update({ badge: newBadge, badgeExpiresAt: expiresAt });
+  }
+}
+
+// Buy Gold Badge with Wallet
+async function buyGoldBadge() {
+  if(state.profile.badge === 'gold') return toast('You already have the Gold Badge!');
+  if((state.profile.walletBalance || 0) < 2000) return toast('Insufficient wallet balance. You need ₦2,000.');
+  
+  if(!confirm('Buy Gold Badge for ₦2,000 from your wallet?')) return;
+  try {
+    toast('Processing...');
+    const expiresAt = Date.now() + (365 * 24 * 60 * 60 * 1000); // 1 year
+    await db.collection('users').doc(state.user.uid).update({
+      walletBalance: firebase.firestore.FieldValue.increment(-2000),
+      badge: 'gold',
+      badgeExpiresAt: expiresAt
+    });
+    state.profile.walletBalance -= 2000;
+    state.profile.badge = 'gold';
+    state.profile.badgeExpiresAt = expiresAt;
+    toast('Gold Badge activated! ✨');
+    renderProfile();
+  } catch(e) { toast(e.message); }
+}
+
+// Load Featured Users on Landing Page
+async function loadFeaturedUsers() {
+  try {
+    const snap = await db.collection('users').where('badge', 'in', ['gold', 'diamond', 'elite']).limit(4).get();
+    if(snap.empty) return;
+    
+    let html = '<div style="width:100%; text-align:center; font-size:12px; color:#fff; margin-bottom:5px;">⭐ Featured Talent ⭐</div>';
+    snap.forEach(doc => {
+      const u = doc.data();
+      const b = u.badge === 'gold' ? '✨' : u.badge === 'diamond' ? '💎' : '👑';
+      html += `<div style="background:rgba(255,255,255,0.2); padding:8px 12px; border-radius:20px; font-size:12px;">${b} ${esc(u.first)}</div>`;
+    });
+    $('featuredUsers').innerHTML = html;
+  } catch(e) { console.log('Featured error', e); }
+  }
+  
 // ---- APP BOOT ----
 auth.onAuthStateChanged(async user => {
   if (!user) { state.user = null; state.profile = null; showLanding(); return; }
@@ -1163,6 +1267,7 @@ auth.onAuthStateChanged(async user => {
 });
 
 showLanding();
+loadFeaturedUsers();
 </script>
 </body>
 </html>
