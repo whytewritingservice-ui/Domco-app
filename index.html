@@ -215,6 +215,10 @@
 <!-- BROWSE PANE -->
 <div id="paneBrowse" class="hidden">
   <h2>Explore Services</h2>
+  <div style="display:flex; gap:8px; margin-bottom:12px;">
+  <button id="btnShowGigs" class="btn btn-sm" style="flex:1;" onclick="switchBrowse('gigs')">Explore Gigs</button>
+  <button id="btnShowJobs" class="btn btn-ghost btn-sm" style="flex:1;" onclick="switchBrowse('jobs')">Find Jobs (Bid)</button>
+  </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;">
     <input id="search" placeholder="Search gigs..." oninput="renderGigs()" style="margin:0;">
     <select id="sort" onchange="renderGigs()" style="margin:0;width:110px;">
@@ -239,6 +243,7 @@
   
   <div id="gigList"></div>
   </div>
+  <div id="jobList" class="hidden"></div>
   <!-- ARENA PANE -->
 <div id="paneArena" class="hidden">
   <h2>Domco Arena 🏆</h2>
@@ -2041,6 +2046,46 @@ async function loadFeaturedUsers() {
       el.innerHTML = '<div style="width:100%; text-align:center; font-size:12px; color:#fff; margin-bottom:5px;">⭐ Featured Talent ⭐</div>' + html;
     }
   } catch(e) { console.log('Featured error', e); }
+}
+    // ---- BROWSE JOBS & BIDDING ----
+function switchBrowse(tab) {
+  if (tab === 'gigs') {
+    $('btnShowGigs').classList.remove('btn-ghost');
+    $('btnShowJobs').classList.add('btn-ghost');
+    $('gigList').classList.remove('hidden');
+    $('jobList').classList.add('hidden');
+  } else {
+    $('btnShowGigs').classList.add('btn-ghost');
+    $('btnShowJobs').classList.remove('btn-ghost');
+    $('gigList').classList.add('hidden');
+    $('jobList').classList.remove('hidden');
+    loadJobs();
+  }
+}
+
+async function loadJobs() {
+  const el = $('jobList');
+  el.innerHTML = '<div class="empty">Loading jobs...</div>';
+  try {
+    const snap = await db.collection('jobs').where('status', '==', 'open').get();
+    if (snap.empty) {
+      el.innerHTML = '<div class="empty">No open jobs right now. Check back later!</div>';
+      return;
+    }
+    el.innerHTML = snap.docs.map(doc => {
+      const j = doc.data();
+      return `
+        <div class="item">
+          <div style="font-weight:800; font-size:16px;">${esc(j.title)}</div>
+          <div class="muted">Budget: ${ngn(j.budget)} | Duration: ${j.days} days</div>
+          <p style="font-size:13px; margin:8px 0;">${esc((j.brief||'').slice(0, 100))}...</p>
+          <button class="btn btn-sm" style="width:100%;" onclick="openBidModal('${doc.id}', '${jsEsc(j.title)}', '${j.clientId}')">Submit a Bid</button>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty" style="color:red;">Error loading jobs: ' + e.message + '</div>';
+  }
 }
 
 // ---- APP BOOT ----
