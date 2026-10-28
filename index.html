@@ -364,6 +364,15 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
+  window.onerror = function(msg, url, line) {
+  // Only show popup if the logged-in email is yours, or if you add ?debug=1 to the URL
+  const isAdmin = (typeof auth !== 'undefined' && auth.currentUser && auth.currentUser.email === 'whytewritingservice@gmail.com') || window.location.search.includes('debug=1');
+
+  if (isAdmin) {
+    alert("🚨 ADMIN CRASH ALERT!\n\nError: " + msg + "\n\nLine: " + line);
+  }
+  return false;
+};
   /* ================= CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDdyIm2AuN8agdaF8Jbmdvrb9xfFaEZwSU",
