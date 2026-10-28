@@ -704,14 +704,18 @@ async function verifyPayment(txRef) {
 
 function openFundWallet() { openModal(`<h2>Fund Wallet</h2><label>Amount ₦</label><input id="fundAmt" type="number" min="100"><button class="btn" onclick="doFundWallet()">Proceed</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`); }
 async function doFundWallet() { const amt = Number($('fundAmt').value); if(!amt || amt < 100) return toast('Min ₦100'); try { closeModal(); toast('Creating payment...'); const d = await api('/api/create-payment', { method: 'POST', body: JSON.stringify({ amount: amt, purpose: 'wallet' }) }); window.location.href = d.paymentLink; } catch(e) { toast(e.message); } }
+// 1. Open the Withdrawal Modal
 async function openWithdraw() { 
   if(!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval.'); 
   
-  // Create the dropdown options from the saved bank list
   let bankOptions = '<option value="">Select bank...</option>';
   if (state.banks && state.banks.length > 0) {
     bankOptions += state.banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
   }
+
+  // Pre-fill saved bank and account if they exist
+  const savedBank = state.profile.bankCode || '';
+  const savedAcct = state.profile.accountNumber || '';
 
   openModal(`
     <h2>Withdraw Funds</h2>
@@ -719,18 +723,85 @@ async function openWithdraw() {
     <input id="wdAmt" type="number" min="100">
     
     <label>Select Bank</label>
-    <select id="wdBank" style="width:100%; padding:12px; border-radius:10px; margin-bottom:8px; background:var(--bg); color:var(--text); border:1px solid var(--border);">
+    <select id="wdBank" onchange="resolveWithdrawalAccount()" style="width:100%; padding:12px; border-radius:10px; margin-bottom:8px; background:var(--bg); color:var(--text); border:1px solid var(--border);">
       ${bankOptions}
     </select>
     
     <label>Account Number (10 digits)</label>
-    <input id="wdAcct" maxlength="10">
+    <input id="wdAcct" maxlength="10" value="${savedAcct}" oninput="resolveWithdrawalAccount()">
     
-    <button class="btn" onclick="doWithdraw()">Withdraw</button>
+    <div id="wdAcctName" style="font-size:13px; font-weight:bold; color:var(--success); margin-bottom:12px; min-height:20px;"></div>
+    
+    <button class="btn" onclick="doWithdraw()" id="wdBtn" disabled>Withdraw</button>
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   `); 
+
+  // Automatically trigger the name resolver if they have saved details
+  if (savedBank && savedAcct) {
+    $('wdBank').value = savedBank;
+    resolveWithdrawalAccount();
   }
-async function doWithdraw() { try { const r = await api('/api/withdraw-wallet', { method: 'POST', body: JSON.stringify({ amount: Number($('wdAmt').value), bankCode: $('wdBank').value, accountNumber: $('wdAcct').value }) }); closeModal(); toast(r.message || 'Withdrawal initiated'); loadMyThings(); } catch (e) { toast(e.message); } }
+}
+
+// 2. Verify the Account Name
+let accountResolved = false;
+async function resolveWithdrawalAccount() {
+  const bank = $('wdBank').value;
+  const acct = $('wdAcct').value;
+  const nameDiv = $('wdAcctName');
+  const btn = $('wdBtn');
+  
+  accountResolved = false;
+  btn.disabled = true;
+  nameDiv.textContent = '';
+  
+  if (bank && acct.length === 10) {
+    nameDiv.style.color = 'var(--muted)';
+    nameDiv.textContent = 'Verifying account...';
+    
+    try {
+      const res = await api('/api/resolve-account', { 
+        method: 'POST', 
+        body: JSON.stringify({ account_number: acct, account_bank: bank }) 
+      });
+      
+      nameDiv.style.color = 'var(--success)';
+      nameDiv.textContent = '✅ ' + res.account_name;
+      accountResolved = true;
+      btn.disabled = false; // Enable withdraw button only after verification
+    } catch (e) {
+      nameDiv.style.color = 'var(--danger)';
+      nameDiv.textContent = '❌ Could not resolve account name.';
+    }
+  }
+}
+
+// 3. Execute the Withdrawal
+async function doWithdraw() {
+  if (!accountResolved) return toast('Please wait for the account name to verify first.');
+  
+  const btn = $('wdBtn'); 
+  btn.disabled = true; 
+  btn.textContent = 'Processing...';
+
+  try { 
+    const r = await api('/api/withdraw-wallet', { 
+      method: 'POST', 
+      body: JSON.stringify({ 
+        amount: Number($('wdAmt').value), 
+        bankCode: $('wdBank').value, 
+        accountNumber: $('wdAcct').value 
+      }) 
+    }); 
+    closeModal(); 
+    toast(r.message || 'Withdrawal initiated'); 
+    loadMyThings(); 
+  } catch (e) { 
+    toast(e.message); 
+    btn.disabled = false;
+    btn.textContent = 'Withdraw';
+  } 
+  }
 
 // ---- DASHBOARD & INVOICES ----
 async function loadMyThings() {
