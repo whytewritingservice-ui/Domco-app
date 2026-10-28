@@ -2140,5 +2140,61 @@ auth.onAuthStateChanged(async user => {
 // Initialize App
 showLanding();
 </script>
+  <script>
+// ==========================================
+// FINAL JOB OVERRIDE - OVERWRITES OLD CODE
+// ==========================================
+
+// 1. This replaces the old truncated loadJobs
+window.loadJobs = async function() {
+  const el = document.getElementById('jobList');
+  el.innerHTML = '<div class="empty">Loading jobs...</div>';
+  try {
+    const snap = await db.collection('jobs').where('status', '==', 'open').get();
+    if (snap.empty) {
+      el.innerHTML = '<div class="empty">No open jobs right now. Check back later!</div>';
+      return;
+    }
+    el.innerHTML = snap.docs.map(doc => {
+      const j = doc.data();
+      const preview = j.brief && j.brief.length > 80 ? j.brief.substring(0, 80) + '...' : (j.brief || 'No brief provided');
+      return `
+        <div class="item" onclick="viewJobDetails('${doc.id}')" style="cursor:pointer;">
+          <div style="font-weight:800; font-size:16px;">${esc(j.title)}</div>
+          <div class="muted">Budget: ${ngn(j.budget)} | Duration: ${j.days} days</div>
+          <p style="font-size:13px; margin:8px 0; color:var(--muted);">${esc(preview)}</p>
+          <div style="font-size:12px; color:var(--p); font-weight:bold; margin-top:8px;">Tap to read full brief & bid →</div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty" style="color:red;">Error loading jobs: ' + e.message + '</div>';
+  }
+};
+
+// 2. This adds the popup to see the full details
+window.viewJobDetails = async function(jobId) {
+  try {
+    const doc = await db.collection('jobs').doc(jobId).get();
+    if(!doc.exists) return toast('Job not found');
+    const j = doc.data();
+
+    openModal(`
+      <h2>${esc(j.title)}</h2>
+      <div style="background:var(--bg); padding:12px; border-radius:8px; margin-bottom:16px;">
+        <div class="price" style="font-size:24px;">${ngn(j.budget)}</div>
+        <div class="muted">Duration: ${j.days} days | Slots: ${j.slots || 1}</div>
+        ${j.urgent ? '<div style="color:var(--danger); font-weight:bold; font-size:12px; margin-top:8px;">🔥 URGENT JOB</div>' : ''}
+      </div>
+      
+      <h3>Job Brief</h3>
+      <p style="font-size:14px; white-space:pre-wrap; margin-bottom:20px; line-height:1.6;">${esc(j.brief || 'No detailed brief provided.')}</p>
+      
+      <button class="btn" onclick="closeModal(); openBidModal('${doc.id}', '${jsEsc(j.title)}', '${doc.data().clientId}')">Submit a Bid</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    `);
+  } catch (e) { toast(e.message); }
+};
+  </script>
 </body>
 </html>
