@@ -156,6 +156,8 @@
           <div><label>DOB (16+)</label><input id="dob" type="date"></div>
           <div><label>Role</label><select id="roleSel"><option value="client">Client</option><option value="freelancer">Freelancer</option></select></div>
         </div>
+        <label>Referral Code (Optional)</label>
+<input id="refCode" placeholder="DOMCO-XXXX">
         <label>NIN (11 digits)</label><input id="ninNum" maxlength="11">
         <label>NIN Slip (image)</label><input type="file" id="ninFile" accept="image/*">
         <label style="display:flex;gap:8px;align-items:center;margin-top:12px;"><input type="checkbox" id="terms" style="width:auto;"> I agree to Terms & NIN verification</label>
@@ -545,6 +547,9 @@
   <div id="aTickets"><div class="empty">No tickets</div></div>
 
   <!-- USER MANAGEMENT & BADGE MANAGER -->
+  <!-- REFERRAL TRACKING -->
+<h3>Referral Tracking</h3>
+<div id="aReferrals"><div class="empty">Loading referrals...</div></div>
   <h3>User Management & Badges</h3>
   <input id="adminSearch" placeholder="Search user by email or name..." oninput="searchAdminUsers()" style="margin-bottom:12px;">
   <div id="aAllUsers"><div class="empty">Loading users...</div></div>
@@ -630,7 +635,14 @@ function showAuth(mode) {
   hide('landing'); show('authScreen');
   $('authSignup').classList.toggle('hidden', mode !== 'signup');
   $('authLogin').classList.toggle('hidden', mode !== 'login');
-}
+  
+  // Auto-fill referral code if it's in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const ref = urlParams.get('ref');
+  if (ref && $('refCode')) {
+    $('refCode').value = ref;
+  }
+  }
 
 function nav(pane) {
   ['browse','arena','post','myGigs','chat','profile','admin'].forEach(p => {
@@ -706,6 +718,7 @@ async function signup() {
       walletBalance: 0, skills: '', education: '', experience: '',
       bankCode: '', accountNumber: '', bankName: '', savedGigs: [],
       isAvailable: false, profileViews: 0,
+      referredBy: $('refCode') ? $('refCode').value.trim() : '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     toast('Account created!');
@@ -1838,6 +1851,26 @@ async function loadAdmin() {
 }
 
 function renderAdminUsers(users) {
+  // --- Load Referrals for Admin ---
+const referredUsers = allAdminUsers.filter(u => u.referredBy && u.referredBy.trim() !== '');
+if (referredUsers.length === 0) {
+  $('aReferrals').innerHTML = '<div class="empty">No referrals yet</div>';
+} else {
+  $('aReferrals').innerHTML = referredUsers.map(u => {
+    const isEligible = u.jobsCompleted && u.jobsCompleted > 0;
+    return `
+    <div class="item" style="border-left: 4px solid ${isEligible ? 'var(--success)' : 'var(--warn)'};">
+      <div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+      <div class="muted">Referred by code: <strong style="color:var(--p);">${esc(u.referredBy)}</strong></div>
+      <div style="font-size:12px; margin-top:4px;">Jobs Completed: <strong>${u.jobsCompleted || 0}</strong></div>
+      
+      ${isEligible 
+        ? `<div style="margin-top:8px; color:var(--success); font-size:12px; font-weight:bold;">✅ Eligible for ₦500 Bonus</div>` 
+        : `<div style="margin-top:8px; color:var(--warn); font-size:12px; font-weight:bold;">⏳ Waiting for first job</div>`
+      }
+    </div>`;
+  }).join('');
+    }
   $('aAllUsers').innerHTML = users.length === 0 ? '<div class="empty">No users found</div>' : users.map(u => `
     <div class="item">
       <div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
