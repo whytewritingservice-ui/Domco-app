@@ -2879,5 +2879,37 @@ window.deleteContest = async function() {
   } catch(e) { toast(e.message); }
 };
   </script>
+  <script>
+// ==========================================
+// DYNAMIC CONTEST MODAL OVERRIDE
+// ==========================================
+window.openContestEntry = async function() {
+  try {
+    // Fetch the latest contest details from the database
+    const doc = await db.collection('settings').doc('contest').get();
+    let title = 'Weekly Contest Entry 🎨';
+    let desc = 'Submit your design.';
+    let prize = 10000;
+
+    if (doc.exists && doc.data().active) {
+      const c = doc.data();
+      title = c.title || title;
+      desc = c.description || desc;
+      prize = c.prize || prize;
+    }
+
+    openModal(`
+      <h2>${esc(title)} 🎨</h2>
+      <p class="muted" style="margin-bottom:12px;">${esc(desc)}<br><strong style="color:var(--success);">Prize: ${ngn(prize)}</strong></p>
+      <label>Upload your design (Image)</label>
+      <input type="file" id="contestFile" accept="image/*">
+      <button class="btn" onclick="submitContest()">Submit Entry</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    `);
+  } catch(e) {
+    toast('Error loading contest details.');
+  }
+};
+  </script>
 </body>
 </html>
