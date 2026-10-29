@@ -2911,5 +2911,44 @@ window.openContestEntry = async function() {
   }
 };
   </script>
+  <script>
+// ==========================================
+// MULTI-CURRENCY & INTERNATIONAL CLIENT OVERRIDE
+// ==========================================
+const USD_RATE = 1500; // Current approximate exchange rate
+
+// 1. Override Hire Modal to show USD equivalent
+window.hireGig = async function(gigId) {
+  const g = state.gigs.find(x => x.id === gigId); if (!g) return;
+  
+  // Calculate USD equivalent
+  const usdPrice = (g.basic / USD_RATE).toFixed(2);
+  
+  openModal(`
+    <h2>Hire — ${esc(g.title)}</h2>
+    <div class="price" style="margin:10px 0; font-size:24px;">
+      ${ngn(g.basic)} <span style="font-size:14px; color:var(--muted); font-weight:normal;">(~$${usdPrice} USD)</span>
+    </div>
+    <p class="muted" style="margin-bottom:15px;">
+      Funds held in Escrow until delivery. <br>
+      <strong style="color:var(--success);">🌍 International Cards Accepted! Your bank will handle the USD to NGN conversion automatically.</strong>
+    </p>
+    <button class="btn" onclick="fundEscrow('${gigId}', ${g.basic}, '${esc(g.freelancerId)}', '${jsEsc(g.title)}')">Pay via Flutterwave</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+};
+
+// 2. Add a small note to the Post Job Modal for foreign clients
+setTimeout(() => {
+  const jobForm = document.querySelector('#panePost select#jMilestones')?.parentNode?.parentNode;
+  if (jobForm && !document.getElementById('intlNote')) {
+    const note = document.createElement('div');
+    note.id = 'intlNote';
+    note.style = 'background:var(--bg); padding:10px; border-radius:8px; border:1px dashed var(--p); margin-bottom:12px; font-size:12px; color:var(--p);';
+    note.innerHTML = '🌍 <strong>Are you a foreign client?</strong> No problem! Post your budget in Naira (₦), and you can pay securely with your international USD or GBP card. Your bank handles the conversion.';
+    jobForm.insertBefore(note, jobForm.firstChild);
+  }
+}, 1000);
+  </script>
 </body>
 </html>
