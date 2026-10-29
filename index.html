@@ -4013,5 +4013,70 @@ setTimeout(() => {
   }
 }, 2000); // Waits exactly 2 seconds for the page to fully settle
   </script>
+     <script>
+// ==========================================
+// MUTATION OBSERVER: 100% FOOLPROOF INJECTION
+// ==========================================
+const signupObserver = new MutationObserver((mutations) => {
+  const ninInput = document.getElementById('ninNum');
+  
+  // If the input exists AND we haven't added the country dropdown yet
+  if (ninInput && !document.getElementById('signupCountry')) {
+    
+    const newHtml = `
+      <label>Country</label>
+      <select id="signupCountry" style="margin-bottom:12px;">
+        <option value="Nigeria">🇳🇬 Nigeria</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="UK">🇬🇧 UK</option>
+        <option value="Canada">🇨🇦 Canada</option>
+        <option value="Other">🌍 Other</option>
+      </select>
+
+      <label>ID Type</label>
+      <select id="signupIdType" onchange="toggleIDFields()" style="margin-bottom:12px;">
+        <option value="NIN">Nigerian NIN</option>
+        <option value="Passport">International Passport</option>
+        <option value="License">Driver's License</option>
+      </select>
+      
+      <div id="foreignIdBox" class="hidden" style="margin-bottom:12px;">
+        <label>ID Number</label>
+        <input id="foreignIdNum" placeholder="Enter Passport/License Number">
+      </div>
+    `;
+
+    const label = ninInput.previousElementSibling;
+    if (label) {
+      label.insertAdjacentHTML('beforebegin', newHtml);
+    } else {
+      ninInput.insertAdjacentHTML('beforebegin', newHtml);
+    }
+  }
+});
+
+// Start watching the document for changes
+signupObserver.observe(document.body, { childList: true, subtree: true });
+
+// Toggle Logic
+window.toggleIDFields = function() {
+  const idType = document.getElementById('signupIdType').value;
+  const ninInput = document.getElementById('ninNum');
+  const foreignBox = document.getElementById('foreignIdBox');
+  
+  if (!ninInput || !foreignBox) return;
+  const label = ninInput.previousElementSibling;
+
+  if (idType === 'NIN') {
+    ninInput.style.display = 'block';
+    if(label) label.style.display = 'block';
+    foreignBox.classList.add('hidden');
+  } else {
+    ninInput.style.display = 'none';
+    if(label) label.style.display = 'none';
+    foreignBox.classList.remove('hidden');
+  }
+};
+     </script>   
 </body>
 </html>
