@@ -3714,5 +3714,111 @@ window.deleteBroadcast = async function(broadcastId) {
   }
 };
   </script>
+  <script>
+// ==========================================
+// ARENA SCROLL RESTORATION OVERRIDE
+// ==========================================
+
+window.toggleLike = async function(postId) {
+  try {
+    const postRef = db.collection('arena').doc(postId); 
+    const postDoc = await postRef.get(); 
+    let likes = postDoc.data().likes || [];
+    
+    if (likes.includes(state.user.uid)) {
+      likes = likes.filter(id => id !== state.user.uid); 
+    } else {
+      likes.push(state.user.uid);
+    }
+    
+    await postRef.update({ likes: likes }); 
+    
+    // 1. Save the current scroll position BEFORE reloading
+    const currentScroll = window.scrollY;
+    
+    // 2. Reload the feed (this normally resets scroll to 0)
+    await loadArenaFeed(); 
+    
+    // 3. Instantly snap back to where the user was
+    window.scrollTo({
+      top: currentScroll,
+      behavior: 'instant' // 'instant' prevents a weird jumping animation
+    });
+    
+  } catch(e) { 
+    toast(e.message); 
+  }
+};
+  </script>
+  <script>
+// ==========================================
+// COMMENT REPLY & DELETE OVERRIDE
+// ==========================================
+
+// 1. Override loadComments to include Reply and Delete buttons
+window.loadComments = async function(postId) {
+  const list = document.getElementById('commentList'); 
+  if(!list) return;
+  
+  try {
+    const snap = await db.collection('arena').doc(postId).collection('comments').get();
+    
+    if(snap.empty) { 
+      list.innerHTML = '<div class="empty">No comments yet.</div>'; 
+      return; 
+    }
+    
+    let comments = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+    comments.sort((a,b) => (a.createdAt?.toMillis()||0) - (b.createdAt?.toMillis()||0));
+    
+    list.innerHTML = comments.map(c => {
+      // Check if current user can delete (Owner or Admin)
+      const canDelete = state.profile.isAdmin || c.userId === state.user.uid;
+      
+      return `
+        <div style="background:var(--bg); padding:8px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <strong style="color:var(--p); font-size:12px;">${esc(c.userName)}</strong>
+            <div style="display:flex; gap:8px;">
+              ${canDelete ? `<i class="fas fa-trash" style="color:var(--danger); font-size:10px; cursor:pointer;" onclick="deleteComment('${postId}', '${c.id}')"></i>` : ''}
+              <button class="btn btn-sm btn-ghost" style="padding:2px 6px; font-size:10px; margin:0; border:none;" onclick="startChat('${c.userId}', '${jsEsc(c.userName)}')">💼 Hire</button>
+            </div>
+          </div>
+          
+          ${c.type === 'voice' ? `<audio controls src="${esc(c.audioUrl)}" style="width:100%; height:35px;"></audio>` : `<p style="font-size:14px; margin-top:4px; line-height:1.4;">${esc(c.text)}</p>`}
+          
+          <div style="margin-top:4px; text-align:right;">
+            <span style="font-size:11px; color:var(--muted); cursor:pointer; font-weight:bold;" onclick="replyToComment('${jsEsc(c.userName)}')">Reply</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) { 
+    list.innerHTML = '<div class="empty" style="color:red;">Error loading comments.</div>'; 
+  }
+};
+
+// 2. Function to Reply (Tags the user in the input box)
+window.replyToComment = function(userName) {
+  const input = document.getElementById('commentInput');
+  if (input) {
+    input.value = `@${userName} ` + input.value; // Prepend the @tag
+    input.focus(); // Focus the keyboard so they can type immediately
+  }
+};
+
+// 3. Function to Delete a Comment
+window.deleteComment = async function(postId, commentId) {
+  if(!confirm('Delete this comment?')) return;
+  
+  try {
+    await db.collection('arena').doc(postId).collection('comments').doc(commentId).delete();
+    toast('Comment deleted');
+    loadComments(postId); // Refresh the list instantly
+  } catch(e) {
+    toast('Error: ' + e.message);
+  }
+};
+  </script>
 </body>
 </html>
