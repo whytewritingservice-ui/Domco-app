@@ -3978,5 +3978,40 @@ window.signup = async function() {
   }
 };
   </script>
+  <script>
+// ==========================================
+// FORCE INJECT COUNTRY FIELDS
+// ==========================================
+setTimeout(() => {
+  const ninInput = document.getElementById('ninNum');
+  if (ninInput && !document.getElementById('signupCountry')) {
+    const newFields = document.createElement('div');
+    newFields.innerHTML = `
+      <label>Country</label>
+      <select id="signupCountry" style="margin-bottom:12px;">
+        <option value="Nigeria">🇳🇬 Nigeria</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="UK">🇬🇧 UK</option>
+        <option value="Other">🌍 Other</option>
+      </select>
+      <label>ID Type</label>
+      <select id="signupIdType" style="margin-bottom:12px;">
+        <option value="NIN">Nigerian NIN</option>
+        <option value="Passport">International Passport</option>
+        <option value="License">Driver's License</option>
+      </select>
+      <div id="foreignIdBox" class="hidden" style="margin-bottom:12px;">
+        <label>ID Number</label>
+        <input id="foreignIdNum" placeholder="Enter Passport/License Number">
+      </div>
+    `;
+    const ninLabel = ninInput.previousElementSibling;
+    if (ninLabel) {
+      ninLabel.style.display = 'none'; 
+      ninInput.parentNode.insertBefore(newFields, ninLabel);
+    }
+  }
+}, 2000); // Waits exactly 2 seconds for the page to fully settle
+  </script>
 </body>
 </html>
