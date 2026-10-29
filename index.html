@@ -2950,5 +2950,467 @@ setTimeout(() => {
   }
 }, 1000);
   </script>
+  <script>
+// ==========================================
+// GLOBAL MULTI-CURRENCY OVERRIDE
+// ==========================================
+const EXCHANGE_RATES = {
+  NGN: 1,
+  USD: 1500,
+  GBP: 1900,
+  EUR: 1600,
+  CAD: 1100,
+  GHS: 100,
+  ZAR: 80
+};
+
+const CURRENCY_SYMBOLS = {
+  NGN: '₦', USD: '$', GBP: '£', EUR: '€', CAD: 'CA$', GHS: 'GH₵', ZAR: 'R'
+};
+
+// 1. Update Hire Modal to ask for currency
+window.hireGig = async function(gigId) {
+  const g = state.gigs.find(x => x.id === gigId); if (!g) return;
+  
+  let optionsHtml = '';
+  for (const [code, rate] of Object.entries(EXCHANGE_RATES)) {
+    if (code === 'NGN') {
+      optionsHtml += `<option value="NGN">Nigerian Naira (₦${g.basic.toLocaleString()})</option>`;
+    } else {
+      const converted = (g.basic / rate).toFixed(2);
+      optionsHtml += `<option value="${code}">${code} (${CURRENCY_SYMBOLS[code]}${converted})</option>`;
+    }
+  }
+
+  openModal(`
+    <h2>Hire — ${esc(g.title)}</h2>
+    <div class="price" style="margin:10px 0">${ngn(g.basic)}</div>
+    <p class="muted" style="margin-bottom:15px">Funds held in Escrow until delivery.</p>
+    
+    <label>Select Payment Currency</label>
+    <select id="payCurrency" style="margin-bottom:16px;">
+      ${optionsHtml}
+    </select>
+    
+    <button class="btn" onclick="processMultiCurrencyPayment('${gigId}', ${g.basic}, '${esc(g.freelancerId)}', '${jsEsc(g.title)}')">Proceed to Payment</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+};
+
+window.processMultiCurrencyPayment = function(gigId, amountNGN, freelancerId, title) {
+  const curr = document.getElementById('payCurrency').value;
+  const rate = EXCHANGE_RATES[curr];
+  let origAmt = amountNGN;
+  
+  if (curr !== 'NGN') {
+    origAmt = (amountNGN / rate).toFixed(2);
+  }
+  
+  try {
+    closeModal(); toast('Creating payment…'); 
+    // Send NGN to backend, but pack the original currency in 'extra'
+    api('/api/create-payment', { 
+      method: 'POST', 
+      body: JSON.stringify({ 
+        amount: amountNGN, 
+        purpose: 'escrow', 
+        gigId, 
+        extra: { freelancerId, title, originalCurrency: curr, originalAmount: origAmt } 
+      }) 
+    }).then(d => {
+      window.location.href = d.paymentLink;
+    }).catch(e => toast(e.message));
+  } catch(e) { toast(e.message); }
+};
+
+// 2. Update Admin Ledger to show the Original Currency
+const originalLoadAdminFinal2 = window.loadAdmin;
+window.loadAdmin = async function() {
+  await originalLoadAdminFinal2();
+  
+  const adminPane = document.getElementById('paneAdmin');
+  if (adminPane && !document.getElementById('adminLedger')) {
+    const ledgerHtml = `
+      <div id="adminLedger" class="card" style="margin-top:16px;">
+        <h3>💰 Recent Transactions (Global)</h3>
+        <div id="ledgerList" class="empty">Loading transactions...</div>
+      </div>
+    `;
+    adminPane.insertAdjacentHTML('beforeend', ledgerHtml);
+
+    try {
+      const snap = await db.collection('payments').orderBy('createdAt', 'desc').limit(20).get();
+      if (snap.empty) {
+        document.getElementById('ledgerList').innerHTML = '<div class="empty">No transactions yet.</div>';
+        return;
+      }
+
+      document.getElementById('ledgerList').innerHTML = snap.docs.map(doc => {
+        const p = doc.data();
+        const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString() : 'Just now';
+        const statusColor = p.status === 'successful' ? 'var(--success)' : 'var(--warn)';
+        
+        let amountDisplay = ngn(p.amount);
+        if (p.extra && p.extra.originalCurrency && p.extra.originalCurrency !== 'NGN') {
+          amountDisplay = `<strong style="color:var(--p); font-size:16px;">${p.extra.originalCurrency} ${p.extra.originalAmount}</strong> <br><span class="muted">(${ngn(p.amount)} NGN)</span>`;
+        }
+
+        return `
+          <div class="item" style="border-left: 4px solid ${statusColor};">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <strong style="color:${statusColor};">${p.status.toUpperCase()}</strong>
+              <div style="text-align:right;">${amountDisplay}</div>
+            </div>
+            <div class="muted" style="font-size:12px; margin-top:4px;">Purpose: ${esc(p.purpose)}</div>
+            <div class="muted" style="font-size:10px;">Date: ${date}</div>
+          </div>
+        `;
+      }).join('');
+    } catch(e) {
+      document.getElementById('ledgerList').innerHTML = '<div class="empty" style="color:red;">Error loading transactions.</div>';
+    }
+  }
+};
+  </script>
+  <script>
+// ==========================================
+// COUNTRY & ID VERIFICATION OVERRIDE
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  const ninInput = document.getElementById('ninNum');
+  const ninFile = document.getElementById('ninFile');
+  
+  if (ninInput && ninFile) {
+    // 1. Create the new fields
+    const newFields = document.createElement('div');
+    newFields.innerHTML = `
+      <label>Country</label>
+      <select id="signupCountry" onchange="toggleIDFields()">
+        <option value="Nigeria">🇳🇬 Nigeria</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="UK">🇬🇧 UK</option>
+        <option value="Canada">🇨🇦 Canada</option>
+        <option value="Other">🌍 Other</option>
+      </select>
+
+      <label>ID Type</label>
+      <select id="signupIdType" onchange="toggleIDFields()">
+        <option value="NIN">Nigerian NIN</option>
+        <option value="Passport">International Passport</option>
+        <option value="License">Driver's License</option>
+      </select>
+      
+      <div id="foreignIdBox" class="hidden">
+        <label>ID Number</label>
+        <input id="foreignIdNum" placeholder="Enter Passport/License Number">
+      </div>
+    `;
+
+    // Insert the new fields right above the NIN input
+    ninInput.parentNode.insertBefore(newFields, ninInput);
+    
+    // Hide the original NIN label
+    ninInput.previousElementSibling.style.display = 'none';
+    
+    // Rename the labels for the file upload
+    ninFile.previousElementSibling.textContent = 'Upload ID Document (Image)';
+  }
+});
+
+// 2. Toggle fields based on Country and ID Type
+window.toggleIDFields = function() {
+  const idType = document.getElementById('signupIdType').value;
+  const ninInput = document.getElementById('ninNum');
+  const foreignBox = document.getElementById('foreignIdBox');
+  const ninLabel = ninInput.previousElementSibling;
+
+  if (idType === 'NIN') {
+    ninInput.style.display = 'block';
+    ninLabel.style.display = 'block';
+    ninLabel.textContent = 'NIN (11 digits)';
+    foreignBox.classList.add('hidden');
+  } else {
+    ninInput.style.display = 'none';
+    ninLabel.style.display = 'none';
+    foreignBox.classList.remove('hidden');
+  }
+};
+
+// 3. Override Signup to handle the new fields
+window.signup = async function() {
+  const btn = $('signupBtn'); btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    if ($('pass').value.length < 6) throw new Error('Password min 6 chars');
+    if (!$('terms').checked) throw new Error('Accept terms');
+
+    const country = document.getElementById('signupCountry').value;
+    const idType = document.getElementById('signupIdType').value;
+    
+    let finalIdNumber = '';
+    if (idType === 'NIN') {
+      if (!/^\d{11}$/.test($('ninNum').value)) throw new Error('NIN must be 11 digits');
+      finalIdNumber = $('ninNum').value;
+    } else {
+      if (!$('foreignIdNum').value) throw new Error('Please enter your ID number');
+      finalIdNumber = $('foreignIdNum').value;
+    }
+
+    if (!$('ninFile').files[0]) throw new Error('Please upload your ID document');
+    
+    btn.textContent = 'Uploading ID...';
+    const idUrl = await uploadCloudinary($('ninFile').files[0], 'ids');
+
+    btn.textContent = 'Creating Account...';
+    const cred = await auth.createUserWithEmailAndPassword($('email').value.trim(), $('pass').value);
+    
+    await db.collection('users').doc(cred.user.uid).set({
+      first: $('fName').value.trim(), 
+      last: $('lName').value.trim(),
+      email: $('email').value.trim(), 
+      phone: $('phone').value.trim(),
+      dob: $('dob').value, 
+      role: $('roleSel').value,
+      country: country,
+      idType: idType,
+      idNumber: finalIdNumber,
+      idUrl: idUrl,
+      nin: finalIdNumber, // Keep this for backward compatibility
+      ninSlipUrl: idUrl,  // Keep this for backward compatibility
+      ninApproved: false, // ALWAYS FALSE so you can manually verify
+      banned: false, 
+      isAdmin: false,
+      walletBalance: 0, 
+      skills: '', 
+      education: '', 
+      experience: '',
+      bankCode: '', 
+      accountNumber: '', 
+      bankName: '', 
+      savedGigs: [],
+      isAvailable: false, 
+      profileViews: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Account created! Awaiting Admin verification.');
+  } catch (e) { 
+    $('authErr').textContent = e.message; 
+    show('authErr'); 
+  } finally { 
+    btn.disabled = false; 
+    btn.textContent = 'Create account'; 
+  }
+};
+  </script>
+  <script>
+// ==========================================
+// SMART SIGNUP & ADMIN VERIFICATION OVERRIDE
+// ==========================================
+
+// 1. Override Signup: Auto-approve Clients, Lock Freelancers
+window.signup = async function() {
+  const btn = $('signupBtn'); btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    if ($('pass').value.length < 6) throw new Error('Password min 6 chars');
+    if (!$('terms').checked) throw new Error('Accept terms');
+
+    const role = $('roleSel').value;
+    const country = document.getElementById('signupCountry').value;
+    const idType = document.getElementById('signupIdType').value;
+    
+    let finalIdNumber = 'N/A';
+    let idUrl = '';
+    
+    // Freelancers MUST provide ID. Clients do not need ID to post jobs.
+    if (role === 'freelancer') {
+      if (idType === 'NIN') {
+        if (!/^\d{11}$/.test($('ninNum').value)) throw new Error('NIN must be 11 digits');
+        finalIdNumber = $('ninNum').value;
+      } else {
+        if (!$('foreignIdNum').value) throw new Error('Please enter your ID number');
+        finalIdNumber = $('foreignIdNum').value;
+      }
+
+      if (!$('ninFile').files[0]) throw new Error('Please upload your ID document');
+      
+      btn.textContent = 'Uploading ID...';
+      idUrl = await uploadCloudinary($('ninFile').files[0], 'ids');
+    }
+
+    btn.textContent = 'Creating Account...';
+    const cred = await auth.createUserWithEmailAndPassword($('email').value.trim(), $('pass').value);
+    
+    await db.collection('users').doc(cred.user.uid).set({
+      first: $('fName').value.trim(), 
+      last: $('lName').value.trim(),
+      email: $('email').value.trim(), 
+      phone: $('phone').value.trim(),
+      dob: $('dob').value, 
+      role: role,
+      country: country,
+      idType: idType,
+      idNumber: finalIdNumber,
+      idUrl: idUrl,
+      nin: finalIdNumber, 
+      ninSlipUrl: idUrl,  
+      // If Client, auto-approve. If Freelancer, set to false for Admin review.
+      ninApproved: role === 'client' ? true : false, 
+      banned: false, 
+      isAdmin: false,
+      walletBalance: 0, 
+      skills: '', education: '', experience: '',
+      bankCode: '', accountNumber: '', bankName: '', savedGigs: [],
+      isAvailable: false, profileViews: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast(role === 'client' ? 'Client account created! You can post jobs now.' : 'Account created! Awaiting Admin verification.');
+  } catch (e) { 
+    $('authErr').textContent = e.message; 
+    show('authErr'); 
+  } finally { 
+    btn.disabled = false; 
+    btn.textContent = 'Create account'; 
+  }
+};
+
+// 2. Upgrade the Admin Dashboard to show Country, ID Type, and Image
+const originalLoadAdminVerify = window.loadAdmin;
+window.loadAdmin = async function() {
+  if (!state.profile?.isAdmin) return;
+  
+  // We call the original to load stats, but we will replace the pending NINs section
+  await originalLoadAdminVerify();
+  
+  try {
+    const pendSnap = await db.collection('users').where('ninApproved', '==', false).limit(20).get();
+    
+    if (pendSnap.empty) {
+      document.getElementById('aPending').innerHTML = '<div class="empty">No pending verifications</div>';
+      return;
+    }
+
+    document.getElementById('aPending').innerHTML = pendSnap.docs.map(d => { 
+      const u = d.data(); 
+      return `
+        <div class="item" style="border-left: 4px solid var(--warn);">
+          <div style="font-weight:800; font-size:16px;">${esc(u.first)} ${esc(u.last)}</div>
+          <div class="muted">Email: ${esc(u.email)} | Role: ${u.role}</div>
+          
+          <div style="background:var(--bg); padding:8px; border-radius:8px; margin-top:8px;">
+            <div style="font-size:12px;"><strong>Country:</strong> ${esc(u.country || 'Nigeria')}</div>
+            <div style="font-size:12px;"><strong>ID Type:</strong> ${esc(u.idType || 'NIN')}</div>
+            <div style="font-size:12px;"><strong>ID Number:</strong> ${esc(u.idNumber || 'N/A')}</div>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            ${u.idUrl ? `<a href="${esc(u.idUrl)}" target="_blank" class="btn btn-ghost btn-sm">👁️ View ID Image</a>` : '<span class="muted" style="color:red">No image uploaded</span>'}
+            <button class="btn btn-sm" style="background:var(--success)" onclick="db.collection('users').doc('${d.id}').update({ninApproved:true}).then(()=>{toast('Approved');loadAdmin()})">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button>
+          </div>
+        </div>
+      `; 
+    }).join('');
+  } catch(e) {
+    console.log("Admin verify error", e);
+  }
+};
+  </script>
+  <script>
+// ==========================================
+// ULTIMATE CONSOLIDATED ADMIN DASHBOARD
+// ==========================================
+window.loadAdmin = async function() {
+  if (!state.profile?.isAdmin) return;
+  
+  try {
+    // 1. Load Stats
+    const stats = await api('/api/admin-stats'); 
+    if($('aEscrow')) $('aEscrow').textContent = ngn(stats.escrow); 
+    if($('aProfit')) $('aProfit').textContent = ngn(stats.profit); 
+    if($('aUsers')) $('aUsers').textContent = stats.totalUsers; 
+    if($('aJobs')) $('aJobs').textContent = stats.totalJobs;
+    
+    // 2. Load Pending Verifications
+    const pendSnap = await db.collection('users').where('ninApproved', '==', false).limit(20).get();
+    $('aPending').innerHTML = pendSnap.empty ? '<div class="empty">No pending verifications</div>' : pendSnap.docs.map(d => { 
+      const u = d.data(); 
+      return `<div class="item" style="border-left: 4px solid var(--warn);">
+        <div style="font-weight:800; font-size:16px;">${esc(u.first)} ${esc(u.last)}</div>
+        <div class="muted">Email: ${esc(u.email)} | Role: ${u.role}</div>
+        <div style="background:var(--bg); padding:8px; border-radius:8px; margin-top:8px;">
+          <div style="font-size:12px;"><strong>Country:</strong> ${esc(u.country || 'Nigeria')}</div>
+          <div style="font-size:12px;"><strong>ID Type:</strong> ${esc(u.idType || 'NIN')}</div>
+          <div style="font-size:12px;"><strong>ID Number:</strong> ${esc(u.idNumber || 'N/A')}</div>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          ${u.idUrl ? `<a href="${esc(u.idUrl)}" target="_blank" class="btn btn-ghost btn-sm">👁️ View ID Image</a>` : '<span class="muted" style="color:red">No image</span>'}
+          <button class="btn btn-sm" style="background:var(--success)" onclick="db.collection('users').doc('${d.id}').update({ninApproved:true}).then(()=>{toast('Approved');loadAdmin()})">Approve</button>
+          <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${d.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button>
+        </div>
+      </div>`; 
+    }).join('');
+
+    // 3. Load Active Jobs / Disputes
+    const jobsSnap = await db.collection('jobs').get(); 
+    const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed'].includes(d.data().status));
+    $('aDisputes').innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' : activeJobs.map(d => { 
+      const j = d.data(); 
+      return `<div class="item">
+        <div style="font-weight:800">${esc(j.title)}</div>
+        <div class="muted">Status: ${j.status} | Amount: ${ngn(j.amount)}</div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-sm" style="background:var(--p);" onclick="openDisputeSlider('${d.id}', ${j.amount}, '${jsEsc(j.title)}')">⚖️ Resolve (Split)</button>
+          <button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Full Refund');loadAdmin()})">Full Refund</button>
+        </div>
+      </div>`; 
+    }).join('');
+
+    // 4. Load Support Tickets
+    const tickSnap = await db.collection('tickets').where('status', '==', 'open').get();
+    $('aTickets').innerHTML = tickSnap.empty ? '<div class="empty">No tickets</div>' : tickSnap.docs.map(d => { 
+      const t = d.data(); 
+      return `<div class="item"><div style="font-weight:800">${esc(t.subject)}</div><div class="muted">From: ${esc(t.name)}</div><div style="font-size:13px;margin:8px 0;">${esc(t.msg)}</div><button class="btn btn-sm" onclick="db.collection('tickets').doc('${d.id}').update({status:'resolved'}).then(loadAdmin)">Resolve</button></div>`; 
+    }).join('');
+    
+    // 5. Load All Users (Badges & Credit)
+    const usersSnap = await db.collection('users').limit(50).get(); 
+    allAdminUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })); 
+    renderAdminUsers(allAdminUsers);
+
+    // 6. Load GLOBAL Transaction Ledger (Multi-Currency)
+    if (!document.getElementById('adminLedger')) {
+      const ledgerHtml = `<div id="adminLedger" class="card" style="margin-top:16px;"><h3>💰 Global Transactions (Multi-Currency)</h3><div id="ledgerList" class="empty">Loading...</div></div>`;
+      document.getElementById('paneAdmin').insertAdjacentHTML('beforeend', ledgerHtml);
+    }
+    
+    const paySnap = await db.collection('payments').orderBy('createdAt', 'desc').limit(20).get();
+    if (paySnap.empty) {
+      $('ledgerList').innerHTML = '<div class="empty">No transactions yet.</div>';
+    } else {
+      $('ledgerList').innerHTML = paySnap.docs.map(doc => {
+        const p = doc.data();
+        const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString() : 'Just now';
+        const statusColor = p.status === 'successful' ? 'var(--success)' : 'var(--warn)';
+        
+        let amountDisplay = ngn(p.amount);
+        if (p.extra && p.extra.originalCurrency && p.extra.originalCurrency !== 'NGN') {
+          amountDisplay = `<strong style="color:var(--p); font-size:16px;">${p.extra.originalCurrency} ${p.extra.originalAmount}</strong> <br><span class="muted">(${ngn(p.amount)} NGN)</span>`;
+        }
+
+        return `<div class="item" style="border-left: 4px solid ${statusColor};">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <strong style="color:${statusColor};">${p.status.toUpperCase()}</strong>
+            <div style="text-align:right;">${amountDisplay}</div>
+          </div>
+          <div class="muted" style="font-size:12px; margin-top:4px;">Purpose: ${esc(p.purpose)}</div>
+          <div class="muted" style="font-size:10px;">Date: ${date}</div>
+        </div>`;
+      }).join('');
+    }
+
+  } catch (e) { toast(e.message); }
+};
+  </script>
 </body>
 </html>
