@@ -3556,5 +3556,163 @@ window.doWithdrawIntl = async function() {
   } catch(e) { toast(e.message); }
 };
   </script>
+   <script>
+// ==========================================
+// FINAL SIGNUP OVERRIDE: 100% MANUAL VERIFICATION
+// ==========================================
+
+window.signup = async function() {
+  const btn = document.getElementById('signupBtn'); 
+  if(btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  
+  try {
+    if (document.getElementById('pass').value.length < 6) throw new Error('Password min 6 chars');
+    if (!document.getElementById('terms').checked) throw new Error('Accept terms');
+
+    const role = document.getElementById('roleSel').value;
+    const country = document.getElementById('signupCountry') ? document.getElementById('signupCountry').value : 'Nigeria';
+    const idType = document.getElementById('signupIdType') ? document.getElementById('signupIdType').value : 'NIN';
+    
+    let finalIdNumber = '';
+    
+    // 1. EVERYONE must provide an ID number (NIN or Foreign)
+    if (idType === 'NIN') {
+      if (!/^\d{11}$/.test(document.getElementById('ninNum').value)) throw new Error('NIN must be 11 digits');
+      finalIdNumber = document.getElementById('ninNum').value;
+    } else {
+      const foreignId = document.getElementById('foreignIdNum');
+      if (!foreignId || !foreignId.value) throw new Error('Please enter your ID number');
+      finalIdNumber = foreignId.value;
+    }
+
+    // 2. EVERYONE must upload an ID document
+    const fileInput = document.getElementById('ninFile');
+    if (!fileInput || !fileInput.files[0]) throw new Error('Please upload your ID document');
+    
+    if(btn) btn.textContent = 'Uploading ID...';
+    const idUrl = await uploadCloudinary(fileInput.files[0], 'ids');
+
+    // 3. Create the Auth Account
+    if(btn) btn.textContent = 'Creating Account...';
+    const cred = await auth.createUserWithEmailAndPassword(document.getElementById('email').value.trim(), document.getElementById('pass').value);
+    
+    // 4. Save to Database with ninApproved: FALSE (Locks everyone out)
+    await db.collection('users').doc(cred.user.uid).set({
+      first: document.getElementById('fName').value.trim(), 
+      last: document.getElementById('lName').value.trim(),
+      email: document.getElementById('email').value.trim(), 
+      phone: document.getElementById('phone').value.trim(),
+      dob: document.getElementById('dob').value, 
+      role: role,
+      country: country,
+      idType: idType,
+      idNumber: finalIdNumber,
+      idUrl: idUrl,
+      nin: finalIdNumber, 
+      ninSlipUrl: idUrl,  
+      ninApproved: false, // 🚨 LOCK EVERYONE UNTIL ADMIN APPROVES
+      banned: false, 
+      isAdmin: false,
+      walletBalance: 0, 
+      skills: '', education: '', experience: '',
+      bankCode: '', accountNumber: '', bankName: '', savedGigs: [],
+      isAvailable: false, profileViews: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Account created! Awaiting Admin verification.');
+  } catch (e) { 
+    const errDiv = document.getElementById('authErr');
+    if(errDiv) { errDiv.textContent = e.message; show('authErr'); }
+    else { toast(e.message); }
+  } finally { 
+    if(btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+  }
+};
+   </script>
+  <script>
+// ==========================================
+// ADMIN BROADCAST MANAGER (VIEW & DELETE)
+// ==========================================
+
+// 1. Add the Broadcast Manager section to the Admin Dashboard
+const originalLoadAdminBroadcast = window.loadAdmin;
+window.loadAdmin = async function() {
+  await originalLoadAdminBroadcast();
+  
+  const adminPane = document.getElementById('paneAdmin');
+  if (adminPane && !document.getElementById('broadcastManager')) {
+    const broadcastHtml = `
+      <div id="broadcastManager" class="card" style="margin-top:16px; border: 2px dashed var(--b);">
+        <h3>📢 Broadcast History</h3>
+        <p class="muted" style="font-size:12px;">Review and delete past announcements.</p>
+        <div id="broadcastList" class="empty">Loading broadcasts...</div>
+      </div>
+    `;
+    // Insert it right below the Broadcast input box
+    const broadcastInput = Array.from(adminPane.querySelectorAll('h3')).find(el => el.textContent.includes('Broadcast'));
+    if (broadcastInput) {
+      broadcastInput.parentNode.insertAdjacentHTML('afterend', broadcastHtml);
+    } else {
+      adminPane.insertAdjacentHTML('beforeend', broadcastHtml);
+    }
+    
+    loadAdminBroadcasts();
+  }
+};
+
+// 2. Fetch and Render Broadcasts
+async function loadAdminBroadcasts() {
+  const list = document.getElementById('broadcastList');
+  if(!list) return;
+  
+  try {
+    const snap = await db.collection('broadcasts').orderBy('createdAt', 'desc').limit(15).get();
+    
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty">No broadcasts sent yet.</div>';
+      return;
+    }
+    
+    list.innerHTML = snap.docs.map(doc => {
+      const b = doc.data();
+      const date = b.createdAt ? new Date(b.createdAt.toMillis()).toLocaleDateString() : 'Just now';
+      
+      let content = '';
+      if (b.type === 'voice') {
+        content = `<audio controls src="${b.audioUrl}" style="width:100%; height:35px; margin-top:8px;"></audio>`;
+      } else {
+        content = `<p style="font-size:13px; margin-top:8px; background:var(--bg); padding:8px; border-radius:8px;">${esc(b.message)}</p>`;
+      }
+      
+      return `
+        <div class="item" style="padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:var(--p); font-size:12px;">${b.type === 'voice' ? '🎙️ Voice' : '📝 Text'}</strong>
+            <span class="muted" style="font-size:10px;">${date}</span>
+          </div>
+          ${content}
+          <button class="btn btn-sm btn-danger" style="margin-top:8px; width:100%;" onclick="deleteBroadcast('${doc.id}')">🗑️ Delete Broadcast</button>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty" style="color:red;">Error loading broadcasts.</div>';
+  }
+}
+
+// 3. Delete the Broadcast
+window.deleteBroadcast = async function(broadcastId) {
+  if(!confirm('Are you sure you want to delete this broadcast? It will disappear from all users\' inboxes.')) return;
+  
+  try {
+    await db.collection('broadcasts').doc(broadcastId).delete();
+    toast('Broadcast deleted successfully');
+    loadAdminBroadcasts(); // Refresh the list
+  } catch(e) {
+    toast('Error deleting: ' + e.message);
+  }
+};
+  </script>
 </body>
 </html>
