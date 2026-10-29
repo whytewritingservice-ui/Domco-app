@@ -2757,5 +2757,127 @@ window.openChatRoom = async function(chatId, otherName) {
   nameEl.onclick = () => viewPublicProfile(otherId);
 };
   </script>
+  <script>
+// ==========================================
+// DYNAMIC CONTEST MANAGER OVERRIDE
+// ==========================================
+
+// 1. Hide the old hardcoded contest box and inject a dynamic one
+document.addEventListener('DOMContentLoaded', () => {
+  const arenaPane = document.getElementById('paneArena');
+  if (arenaPane) {
+    // Find the hardcoded box and hide it
+    const hardcodedBox = Array.from(arenaPane.querySelectorAll('.card')).find(el => el.innerHTML.includes('Weekly Design Contest'));
+    if (hardcodedBox) hardcodedBox.style.display = 'none';
+
+    // Create a new container for the dynamic contest
+    const dynamicDiv = document.createElement('div');
+    dynamicDiv.id = 'dynamicContestContainer';
+    arenaPane.insertBefore(dynamicDiv, document.getElementById('arenaFeed'));
+    
+    loadDynamicContest(); // Fetch from DB on load
+  }
+});
+
+// 2. Load Contest from Database
+async function loadDynamicContest() {
+  const container = document.getElementById('dynamicContestContainer');
+  if (!container) return;
+
+  try {
+    const doc = await db.collection('settings').doc('contest').get();
+    if (doc.exists && doc.data().active === true) {
+      const c = doc.data();
+      container.innerHTML = `
+        <div class="card" style="text-align:center; border: 2px solid var(--p); background:var(--bg);">
+          <h3 style="color:var(--p);">${esc(c.title || 'Weekly Contest')} 🎨</h3>
+          <p class="muted">${esc(c.description || '')}</p>
+          <div style="font-size:14px; font-weight:900; color:var(--success); margin: 8px 0;">Prize: ${ngn(c.prize || 0)}</div>
+          <div style="font-size:12px; color:var(--danger); font-weight:bold; margin-bottom:12px;">${esc(c.deadline || 'Ends soon!')}</div>
+          <button class="btn btn-sm" onclick="openContestEntry()">Submit Entry</button>
+        </div>
+      `;
+    } else {
+      container.innerHTML = ''; // Hide completely if not active
+    }
+  } catch(e) { console.log('Contest load error', e); }
+}
+
+// 3. Add Admin UI for Contest Management
+const originalLoadAdminContest = window.loadAdmin;
+window.loadAdmin = async function() {
+  await originalLoadAdminContest();
+  
+  // Inject the contest manager at the top of the Admin pane
+  const adminPane = document.getElementById('paneAdmin');
+  if (adminPane && !document.getElementById('contestManager')) {
+    const managerHtml = `
+      <div id="contestManager" class="card" style="background:var(--bg); border:2px dashed var(--warn); margin-bottom:16px;">
+        <h3>🏆 Contest Manager</h3>
+        <p class="muted" style="font-size:12px;">Control the contest banner in the Arena.</p>
+        <button class="btn btn-sm" style="background:var(--warn); color:#000;" onclick="openContestSettings()">⚙️ Edit / Close Contest</button>
+      </div>
+    `;
+    adminPane.insertAdjacentHTML('afterbegin', managerHtml);
+  }
+};
+
+window.openContestSettings = async function() {
+  const doc = await db.collection('settings').doc('contest').get();
+  const c = doc.exists ? doc.data() : { title: '', description: '', prize: 0, deadline: '', active: false };
+
+  openModal(`
+    <h2>Manage Contest</h2>
+    <label>Title</label>
+    <input id="cTitle" value="${esc(c.title || 'Weekly Design Contest')}">
+    
+    <label>Description</label>
+    <textarea id="cDesc" rows="2">${esc(c.description || 'Design a logo for a local coffee shop.')}</textarea>
+    
+    <label>Prize (₦)</label>
+    <input id="cPrize" type="number" value="${c.prize || 10000}">
+    
+    <label>Deadline Text</label>
+    <input id="cDeadline" value="${esc(c.deadline || 'Ends in 2 days')}">
+    
+    <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+      <input type="checkbox" id="cActive" ${c.active ? 'checked' : ''} style="width:auto;"> 🟢 Contest is Active (Show in Arena)
+    </label>
+    
+    <button class="btn" style="background:var(--success);" onclick="saveContestSettings()">Save Contest</button>
+    <button class="btn btn-danger" onclick="deleteContest()">🗑️ Delete Contest Completely</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+};
+
+window.saveContestSettings = async function() {
+  const data = {
+    title: document.getElementById('cTitle').value,
+    description: document.getElementById('cDesc').value,
+    prize: Number(document.getElementById('cPrize').value),
+    deadline: document.getElementById('cDeadline').value,
+    active: document.getElementById('cActive').checked
+  };
+  
+  try {
+    await db.collection('settings').doc('contest').set(data, { merge: true });
+    closeModal();
+    toast('Contest updated!');
+    loadDynamicContest(); // Update Arena immediately
+    loadAdmin(); // Update Admin panel
+  } catch(e) { toast(e.message); }
+};
+
+window.deleteContest = async function() {
+  if(!confirm('Are you sure you want to delete the contest permanently?')) return;
+  try {
+    await db.collection('settings').doc('contest').delete();
+    closeModal();
+    toast('Contest deleted');
+    loadDynamicContest(); // Hides it from Arena
+    loadAdmin();
+  } catch(e) { toast(e.message); }
+};
+  </script>
 </body>
 </html>
