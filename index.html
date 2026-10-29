@@ -3412,5 +3412,149 @@ window.loadAdmin = async function() {
   } catch (e) { toast(e.message); }
 };
   </script>
+  <script>
+// ==========================================
+// INTERNATIONAL WITHDRAWAL FRONTEND OVERRIDE
+// ==========================================
+
+window.openWithdraw = async function() { 
+  if(!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your account is pending Admin approval.'); 
+  
+  let bankOptions = '<option value="">Select Nigerian bank...</option>';
+  if (state.banks && state.banks.length > 0) {
+    bankOptions += state.banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
+  }
+
+  openModal(`
+    <h2>Withdraw Funds</h2>
+    
+    <label>Withdrawal Type</label>
+    <select id="wdType" onchange="toggleWithdrawFields()" style="margin-bottom:16px;">
+      <option value="local">🇳🇬 Local (Nigerian Bank - NGN)</option>
+      <option value="international">🌍 International (USD, GBP, EUR)</option>
+    </select>
+
+    <!-- LOCAL FIELDS -->
+    <div id="localFields">
+      <label>Amount ₦</label>
+      <input id="wdAmtNGN" type="number" min="100">
+      <label>Select Bank</label>
+      <select id="wdBank" onchange="resolveWithdrawalAccount()">
+        ${bankOptions}
+      </select>
+      <label>Account Number (10 digits)</label>
+      <input id="wdAcct" maxlength="10" oninput="resolveWithdrawalAccount()">
+      <div id="wdAcctName" style="font-size:13px; font-weight:bold; color:var(--success); margin-bottom:12px; min-height:20px;"></div>
+      <button class="btn" onclick="doWithdrawNGN()" id="wdBtnNGN" disabled>Withdraw NGN</button>
+    </div>
+
+    <!-- INTERNATIONAL FIELDS -->
+    <div id="intlFields" class="hidden">
+      <label>Amount to Receive</label>
+      <input id="wdAmtIntl" type="number" min="10">
+      
+      <label>Currency</label>
+      <select id="wdCurrency">
+        <option value="USD">US Dollar (USD)</option>
+        <option value="GBP">British Pound (GBP)</option>
+        <option value="EUR">Euro (EUR)</option>
+      </select>
+
+      <label>Bank Name</label>
+      <input id="wdBankNameIntl" placeholder="e.g. Chase Bank, Barclays">
+
+      <label>SWIFT / BIC Code / Sort Code / IBAN</label>
+      <input id="wdBankCodeIntl" placeholder="e.g. CHASUS33 or GB29NWBK...">
+      
+      <label>Account Number</label>
+      <input id="wdAcctIntl" placeholder="Account Number">
+
+      <label>Account Name</label>
+      <input id="wdNameIntl" placeholder="Full Name on Account">
+      
+      <div style="font-size:11px; color:var(--warn); margin-bottom:12px;">
+        Note: International transfers take 1-3 business days. Your Naira wallet will be debited at the current exchange rate.
+      </div>
+
+      <button class="btn" onclick="doWithdrawIntl()" style="background:var(--b);">Withdraw Internationally</button>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `); 
+};
+
+window.toggleWithdrawFields = function() {
+  const type = document.getElementById('wdType').value;
+  document.getElementById('localFields').classList.toggle('hidden', type !== 'local');
+  document.getElementById('intlFields').classList.toggle('hidden', type !== 'international');
+};
+
+// Local withdrawal logic (re-attaching)
+let accountResolved = false;
+window.resolveWithdrawalAccount = async function() {
+  const bank = $('wdBank').value;
+  const acct = $('wdAcct').value;
+  const nameDiv = $('wdAcctName');
+  const btn = $('wdBtnNGN');
+  
+  accountResolved = false;
+  btn.disabled = true;
+  nameDiv.textContent = '';
+  
+  if (bank && acct.length === 10) {
+    nameDiv.style.color = 'var(--muted)';
+    nameDiv.textContent = 'Verifying account...';
+    
+    try {
+      const res = await api('/api/resolve-account', { method: 'POST', body: JSON.stringify({ account_number: acct, account_bank: bank }) });
+      nameDiv.style.color = 'var(--success)';
+      nameDiv.textContent = '✅ ' + res.account_name;
+      accountResolved = true;
+      btn.disabled = false;
+    } catch (e) {
+      nameDiv.style.color = 'var(--danger)';
+      nameDiv.textContent = '❌ Could not resolve account name.';
+    }
+  }
+};
+
+window.doWithdrawNGN = async function() {
+  if (!accountResolved) return toast('Please wait for the account name to verify first.');
+  const btn = $('wdBtnNGN'); btn.disabled = true; btn.textContent = 'Processing...';
+  try { 
+    const r = await api('/api/withdraw-wallet', { method: 'POST', body: JSON.stringify({ amount: Number($('wdAmtNGN').value), bankCode: $('wdBank').value, accountNumber: $('wdAcct').value }) }); 
+    closeModal(); toast(r.message || 'Withdrawal initiated'); loadMyThings(); 
+  } catch (e) { toast(e.message); btn.disabled = false; btn.textContent = 'Withdraw NGN'; } 
+};
+
+window.doWithdrawIntl = async function() {
+  const amt = Number($('wdAmtIntl').value);
+  const curr = $('wdCurrency').value;
+  const bankName = $('wdBankNameIntl').value;
+  const bankCode = $('wdBankCodeIntl').value; // This is the SWIFT/IBAN
+  const acct = $('wdAcctIntl').value;
+  const name = $('wdNameIntl').value;
+
+  if(!amt || !bankName || !bankCode || !acct || !name) return toast('Please fill all fields');
+
+  try {
+    toast('Processing international transfer...');
+    // We pass the SWIFT code as 'bankCode'
+    const r = await api('/api/withdraw-international', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        amount: amt, 
+        currency: curr, 
+        accountNumber: acct, 
+        bankCode: bankCode, 
+        accountName: name 
+      })
+    });
+    closeModal();
+    toast(r.message || 'International withdrawal initiated');
+    loadMyThings();
+  } catch(e) { toast(e.message); }
+};
+  </script>
 </body>
 </html>
