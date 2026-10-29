@@ -3820,5 +3820,163 @@ window.deleteComment = async function(postId, commentId) {
   }
 };
   </script>
+  <script>
+// ==========================================
+// BULLETPROOF COUNTRY & ID INJECTION
+// ==========================================
+
+function injectSignupFields() {
+  const ninInput = document.getElementById('ninNum');
+  
+  // If the input exists and we haven't injected yet
+  if (ninInput && !document.getElementById('signupCountry')) {
+    const newFields = document.createElement('div');
+    newFields.innerHTML = `
+      <label>Country</label>
+      <select id="signupCountry" onchange="toggleIDFields()" style="margin-bottom:12px;">
+        <option value="Nigeria">🇳🇬 Nigeria</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="UK">🇬🇧 UK</option>
+        <option value="Canada">🇨🇦 Canada</option>
+        <option value="Other">🌍 Other</option>
+      </select>
+
+      <label>ID Type</label>
+      <select id="signupIdType" onchange="toggleIDFields()" style="margin-bottom:12px;">
+        <option value="NIN">Nigerian NIN</option>
+        <option value="Passport">International Passport</option>
+        <option value="License">Driver's License</option>
+      </select>
+      
+      <div id="foreignIdBox" class="hidden" style="margin-bottom:12px;">
+        <label>ID Number</label>
+        <input id="foreignIdNum" placeholder="Enter Passport/License Number">
+      </div>
+    `;
+
+    // Insert it right above the NIN label
+    const ninLabel = ninInput.previousElementSibling;
+    if (ninLabel) {
+      ninLabel.style.display = 'none'; // Hide the original "NIN (11 digits)" label
+      ninInput.parentNode.insertBefore(newFields, ninLabel);
+    } else {
+      ninInput.parentNode.insertBefore(newFields, ninInput);
+    }
+    
+    // Rename the file upload label
+    const fileInput = document.getElementById('ninFile');
+    if(fileInput && fileInput.previousElementSibling) {
+        fileInput.previousElementSibling.textContent = 'Upload ID Document (Image)';
+    }
+  }
+}
+
+// 1. Hook into the "Get Started" button so it injects exactly when the form opens
+const originalShowAuth = window.showAuth;
+window.showAuth = function(mode) {
+  originalShowAuth(mode);
+  if (mode === 'signup') {
+    // Wait 100ms for the form to slide in, then inject
+    setTimeout(injectSignupFields, 100); 
+  }
+};
+
+// 2. Also run it on load just in case the form is already open
+setTimeout(injectSignupFields, 1000);
+
+// 3. Toggle between NIN and Foreign ID fields
+window.toggleIDFields = function() {
+  const idType = document.getElementById('signupIdType').value;
+  const ninInput = document.getElementById('ninNum');
+  const foreignBox = document.getElementById('foreignIdBox');
+  
+  if (!ninInput || !foreignBox) return;
+  const ninLabel = ninInput.previousElementSibling;
+
+  if (idType === 'NIN') {
+    ninInput.style.display = 'block';
+    if(ninLabel) ninLabel.style.display = 'block';
+    foreignBox.classList.add('hidden');
+  } else {
+    ninInput.style.display = 'none';
+    if(ninLabel) ninLabel.style.display = 'none';
+    foreignBox.classList.remove('hidden');
+  }
+};
+  </script>
+  <script>
+// ==========================================
+// MATCHING SIGNUP LOGIC FOR NEW FIELDS
+// ==========================================
+
+window.signup = async function() {
+  const btn = document.getElementById('signupBtn'); 
+  if(btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  
+  try {
+    if (document.getElementById('pass').value.length < 6) throw new Error('Password min 6 chars');
+    if (!document.getElementById('terms').checked) throw new Error('Accept terms');
+
+    const role = document.getElementById('roleSel').value;
+    const country = document.getElementById('signupCountry') ? document.getElementById('signupCountry').value : 'Nigeria';
+    const idType = document.getElementById('signupIdType') ? document.getElementById('signupIdType').value : 'NIN';
+    
+    let finalIdNumber = '';
+    
+    // 1. Check ID Type and validate
+    if (idType === 'NIN') {
+      if (!/^\d{11}$/.test(document.getElementById('ninNum').value)) throw new Error('NIN must be 11 digits');
+      finalIdNumber = document.getElementById('ninNum').value;
+    } else {
+      const foreignId = document.getElementById('foreignIdNum');
+      if (!foreignId || !foreignId.value) throw new Error('Please enter your ID number');
+      finalIdNumber = foreignId.value;
+    }
+
+    // 2. EVERYONE must upload an ID document
+    const fileInput = document.getElementById('ninFile');
+    if (!fileInput || !fileInput.files[0]) throw new Error('Please upload your ID document');
+    
+    if(btn) btn.textContent = 'Uploading ID...';
+    const idUrl = await uploadCloudinary(fileInput.files[0], 'ids');
+
+    // 3. Create Auth Account
+    if(btn) btn.textContent = 'Creating Account...';
+    const cred = await auth.createUserWithEmailAndPassword(document.getElementById('email').value.trim(), document.getElementById('pass').value);
+    
+    // 4. Save to Database (ninApproved: false for EVERYONE)
+    await db.collection('users').doc(cred.user.uid).set({
+      first: document.getElementById('fName').value.trim(), 
+      last: document.getElementById('lName').value.trim(),
+      email: document.getElementById('email').value.trim(), 
+      phone: document.getElementById('phone').value.trim(),
+      dob: document.getElementById('dob').value, 
+      role: role,
+      country: country,
+      idType: idType,
+      idNumber: finalIdNumber,
+      idUrl: idUrl,
+      nin: finalIdNumber, 
+      ninSlipUrl: idUrl,  
+      ninApproved: false, // 🚨 LOCKS EVERYONE OUT UNTIL YOU APPROVE
+      banned: false, 
+      isAdmin: false,
+      walletBalance: 0, 
+      skills: '', education: '', experience: '',
+      bankCode: '', accountNumber: '', bankName: '', savedGigs: [],
+      isAvailable: false, profileViews: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Account created! Awaiting Admin verification.');
+  } catch (e) { 
+    const errDiv = document.getElementById('authErr');
+    if(errDiv) { errDiv.textContent = e.message; show('authErr'); }
+    else { toast(e.message); }
+  } finally { 
+    if(btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+  }
+};
+  </script>
 </body>
 </html>
