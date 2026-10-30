@@ -4510,5 +4510,144 @@ window.postJob = async function() {
   } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Post Job'; }
 };
   </script>
+  <style>
+  /* ==========================================
+     MEDIUM FONT SIZE OVERRIDE
+     ========================================== */
+  
+  /* General Text */
+  body { font-size: 13px; }
+  p { font-size: 13px !important; line-height: 1.5; }
+  
+  /* Headers */
+  h2 { font-size: 18px !important; }
+  h3 { font-size: 14px !important; }
+  
+  /* The Gig and Job Cards */
+  .item { padding: 12px !important; }
+  .item > div[style*="font-weight:800"] { font-size: 14px !important; }
+  .item div { font-size: 13px !important; }
+  
+  /* Prices */
+  .price { font-size: 16px !important; font-weight: bold; }
+  
+  /* Small text (muted) */
+  .muted { font-size: 11px !important; }
+  
+  /* Buttons */
+  .btn { font-size: 13px !important; padding: 10px !important; }
+  
+  /* Inputs */
+  input, select, textarea { font-size: 13px !important; padding: 10px !important; }
+  
+  /* The Popup Modal */
+  .modal-box h2 { font-size: 18px !important; }
+  .modal-box p { font-size: 13px !important; }
+  .modal-box .price { font-size: 20px !important; }
+
+  /* Bottom Navigation */
+  .bottom-nav button { font-size: 9px !important; }
+  .bottom-nav i { font-size: 18px !important; }
+  </style>
+  <script>
+// ==========================================
+// GIG DETAILS POPUP OVERRIDE
+// ==========================================
+
+// 1. Override the Gig Feed to make it clickable
+window.renderGigs = function(showOnlySaved = false) {
+  const q = (document.getElementById('search')?.value || '').toLowerCase();
+  const sort = document.getElementById('sort')?.value || 'new';
+  const timeFilter = document.getElementById('filterTime')?.value || '';
+  
+  let list = state.gigs.filter(g => (g.title || '').toLowerCase().includes(q));
+  if (timeFilter) list = list.filter(g => Number(g.days) <= Number(timeFilter));
+  
+  const saved = state.profile?.savedGigs || [];
+  if (showOnlySaved === true) list = list.filter(g => saved.includes(g.id));
+  if (sort === 'low') list.sort((a,b) => (a.basic || 0) - (b.basic || 0));
+  if (sort === 'high') list.sort((a,b) => (b.basic || 0) - (a.basic || 0));
+  
+  const el = document.getElementById('gigList');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<div class="empty">No gigs found</div>'; return; }
+  
+  el.innerHTML = list.map(g => {
+    let badge = '';
+    if (g.badge === 'gold') badge = ' <span class="gold-badge">✨ Gold</span>';
+    if (g.badge === 'diamond') badge = ' <span class="diamond-badge">💎 Diamond</span>';
+    if (g.badge === 'elite') badge = ' <span class="elite-badge">👑 Elite</span>';
+
+    return `
+    <div class="item" style="position:relative; cursor:pointer;" onclick="viewGigDetails('${g.id}')">
+      
+      <!-- Heart Icon (Stops click from bubbling up) -->
+      <i class="fas fa-heart" style="position:absolute;top:15px;right:15px;font-size:20px;color:${saved.includes(g.id) ? 'var(--danger)' : '#ccc'};cursor:pointer;z-index:10;" onclick="event.stopPropagation(); toggleSaveGig('${g.id}')"></i>
+      
+      ${g.coverUrl ? `<img src="${esc(g.coverUrl)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ''}
+      <div style="font-weight:800;padding-right:25px;">${esc(g.title)} ${g.boosted ? '🔥' : ''}</div>
+      <div class="muted">${esc(g.category || '')} • by ${esc(g.freelancerName || 'Freelancer')} ${badge}</div>
+      
+      <div style="font-size:13px;margin:8px 0; color:var(--muted);">${esc((g.description||'').slice(0,80))}… <span style="color:var(--p); font-weight:bold;">(Tap to read more)</span></div>
+      
+      <div class="price">${ngn(g.basic)}</div>
+      
+      <div class="grid-2" style="margin-top:10px;">
+        <!-- Buttons (Stop click from bubbling up) -->
+        <button class="btn btn-sm" onclick="event.stopPropagation(); hireGig('${g.id}')">Hire Now</button>
+        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); startChat('${g.freelancerId}', '${jsEsc(g.freelancerName || 'Freelancer')}')">💬 Message</button>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+// 2. Create the Gig Details Modal
+window.viewGigDetails = function(gigId) {
+  const g = state.gigs.find(x => x.id === gigId);
+  if (!g) return;
+
+  let badge = '';
+  if (g.badge === 'gold') badge = ' <span class="gold-badge">✨ Gold</span>';
+  if (g.badge === 'diamond') badge = ' <span class="diamond-badge">💎 Diamond</span>';
+  if (g.badge === 'elite') badge = ' <span class="elite-badge">👑 Elite</span>';
+
+  let portfolioHtml = '';
+  if (g.portfolio && g.portfolio.length > 0) {
+    portfolioHtml = `
+      <h3 style="margin-top:16px;">Portfolio</h3>
+      <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px;">
+        ${g.portfolio.map(img => `<img src="${esc(img)}" style="height:100px; border-radius:8px; object-fit:cover;">`).join('')}
+      </div>
+    `;
+  }
+
+  openModal(`
+    <div style="max-height:80vh; overflow-y:auto; padding-right:5px;">
+      ${g.coverUrl ? `<img src="${esc(g.coverUrl)}" style="width:100%; height:200px; object-fit:cover; border-radius:12px; margin-bottom:16px;">` : ''}
+      
+      <h2 style="margin-bottom:4px;">${esc(g.title)}</h2>
+      <div class="muted" style="margin-bottom:12px;">${esc(g.category)} • by ${esc(g.freelancerName)} ${badge}</div>
+      
+      <div class="price" style="font-size:24px; margin-bottom:16px;">${ngn(g.basic)}</div>
+      
+      <h3>Description</h3>
+      <p style="font-size:14px; line-height:1.6; white-space:pre-wrap; margin-bottom:16px;">${esc(g.description)}</p>
+      
+      ${portfolioHtml}
+
+      <div style="background:var(--bg); padding:12px; border-radius:8px; margin-top:16px; display:flex; justify-content:space-between;">
+        <div><strong style="color:var(--p);">Delivery:</strong> ${g.days} Days</div>
+        <div><strong style="color:var(--p);">Tiers:</strong> ₦${g.basic} / ₦${g.standard} / ₦${g.premium}</div>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:20px;">
+        <button class="btn" style="flex:2;" onclick="closeModal(); hireGig('${g.id}')">Hire Now for ${ngn(g.basic)}</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="closeModal(); startChat('${g.freelancerId}', '${jsEsc(g.freelancerName || 'Freelancer')}')">💬 Message</button>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:8px;" onclick="closeModal()">Close</button>
+    </div>
+  `);
+};
+  </script>
 </body>
 </html>
