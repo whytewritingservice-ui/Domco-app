@@ -4278,5 +4278,237 @@ window.payInfluencer = async function(uid, amount) {
   }
 };
   </script>
+  <script>
+// ==========================================
+// ULTIMATE PAN-AFRICAN MOMO FRONTEND
+// ==========================================
+window.openWithdraw = async function() { 
+  if(!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your account is pending Admin approval.'); 
+  
+  let bankOptions = '<option value="">Select Nigerian bank...</option>';
+  if (state.banks && state.banks.length > 0) {
+    bankOptions += state.banks.map(b => `<option value="${b.code}">${esc(b.name)}</option>`).join('');
+  }
+
+  openModal(`
+    <h2>Withdraw Funds</h2>
+    
+    <label>Withdrawal Type</label>
+    <select id="wdType" onchange="toggleWithdrawFields()" style="margin-bottom:16px;">
+      <option value="local">🇳🇬 Nigeria Bank (NGN)</option>
+      <option value="momo">📱 African Mobile Money</option>
+      <option value="international">🌍 International (SWIFT/IBAN)</option>
+    </select>
+
+    <!-- NIGERIAN LOCAL FIELDS -->
+    <div id="localFields">
+      <label>Amount ₦</label>
+      <input id="wdAmtNGN" type="number" min="100">
+      <label>Select Bank</label>
+      <select id="wdBank" onchange="resolveWithdrawalAccount()">
+        ${bankOptions}
+      </select>
+      <label>Account Number (10 digits)</label>
+      <input id="wdAcct" maxlength="10" oninput="resolveWithdrawalAccount()">
+      <div id="wdAcctName" style="font-size:13px; font-weight:bold; color:var(--success); margin-bottom:12px; min-height:20px;"></div>
+      <button class="btn" onclick="doWithdrawNGN()" id="wdBtnNGN" disabled>Withdraw NGN</button>
+    </div>
+
+    <!-- PAN-AFRICAN MOMO FIELDS -->
+    <div id="momoFields" class="hidden">
+      <label>Country & Currency</label>
+      <select id="wdMomoCountry" style="margin-bottom:8px;">
+        <option value="GHS">🇬🇭 Ghana (GHS)</option>
+        <option value="KES">🇰🇪 Kenya (KES)</option>
+        <option value="ZAR">🇿🇦 South Africa (ZAR)</option>
+        <option value="UGX">🇺🇬 Uganda (UGX)</option>
+        <option value="TZS">🇹🇿 Tanzania (TZS)</option>
+        <option value="RWF">🇷🇼 Rwanda (RWF)</option>
+        <option value="ZMW">🇿🇲 Zambia (ZMW)</option>
+        <option value="XOF">🇸🇳 Senegal / 🇨🇮 Ivory Coast (XOF)</option>
+        <option value="XAF">🇨🇲 Cameroon / 🇬🇦 Gabon (XAF)</option>
+        <option value="MZN">🇲🇿 Mozambique (MZN)</option>
+        <option value="MWK">🇲🇼 Malawi (MWK)</option>
+      </select>
+
+      <label>Amount</label>
+      <input id="wdAmtMomo" type="number" min="10">
+      
+      <label>Mobile Network</label>
+      <select id="wdNetwork">
+        <option value="MTN">MTN Mobile Money</option>
+        <option value="VODAFONE">Vodafone Cash</option>
+        <option value="AIRTEL">Airtel Money</option>
+        <option value="MPESA">M-Pesa (Safaricom)</option>
+        <option value="ORANGE">Orange Money</option>
+      </select>
+      
+      <label>Phone Number</label>
+      <input id="wdPhoneMomo" type="tel" placeholder="e.g. 0244123456">
+      
+      <button class="btn" onclick="doWithdrawMomo()" style="background:#f59e0b; color:#000;">Withdraw Mobile Money</button>
+    </div>
+
+    <!-- INTERNATIONAL FIELDS -->
+    <div id="intlFields" class="hidden">
+      <label>Amount to Receive</label>
+      <input id="wdAmtIntl" type="number" min="10">
+      <label>Currency</label>
+      <select id="wdCurrency">
+        <option value="USD">US Dollar (USD)</option>
+        <option value="GBP">British Pound (GBP)</option>
+        <option value="EUR">Euro (EUR)</option>
+      </select>
+      <label>Bank Name</label>
+      <input id="wdBankNameIntl" placeholder="e.g. Chase Bank">
+      <label>SWIFT / BIC Code / IBAN</label>
+      <input id="wdBankCodeIntl" placeholder="e.g. CHASUS33">
+      <label>Account Number</label>
+      <input id="wdAcctIntl">
+      <label>Account Name</label>
+      <input id="wdNameIntl">
+      <button class="btn" onclick="doWithdrawIntl()" style="background:var(--b);">Withdraw Internationally</button>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `); 
+};
+
+window.toggleWithdrawFields = function() {
+  const type = document.getElementById('wdType').value;
+  document.getElementById('localFields').classList.toggle('hidden', type !== 'local');
+  document.getElementById('momoFields').classList.toggle('hidden', type !== 'momo');
+  document.getElementById('intlFields').classList.toggle('hidden', type !== 'international');
+};
+
+window.doWithdrawMomo = async function() {
+  const amt = Number(document.getElementById('wdAmtMomo').value);
+  const currency = document.getElementById('wdMomoCountry').value;
+  const network = document.getElementById('wdNetwork').value;
+  const phone = document.getElementById('wdPhoneMomo').value;
+
+  if(!amt || !phone) return toast('Please fill all fields');
+
+  try {
+    toast('Processing Mobile Money transfer...');
+    const r = await api('/api/withdraw-africa-momo', {
+      method: 'POST',
+      body: JSON.stringify({ amount: amt, currency: currency, network: network, phone: phone })
+    });
+    closeModal();
+    toast(r.message || 'Mobile Money withdrawal initiated');
+    loadMyThings();
+  } catch(e) { toast(e.message); }
+};
+  </script>
+  <script>
+// ==========================================
+// GLOBAL CURRENCY DISPLAY & CONVERSION OVERRIDE
+// ==========================================
+
+// 1. Define the exchange rates (1 NGN = X Local)
+// Adjust these as the market changes
+const CURRENCY_RATES = {
+  'Nigeria': { code: 'NGN', symbol: '₦', rate: 1 },
+  'Ghana': { code: 'GHS', symbol: 'GH₵', rate: 0.009 }, // 1 NGN = 0.009 GHS
+  'Kenya': { code: 'KES', symbol: 'KSh', rate: 0.085 },
+  'South Africa': { code: 'ZAR', symbol: 'R', rate: 0.012 },
+  'USA': { code: 'USD', symbol: '$', rate: 0.00066 },
+  'UK': { code: 'GBP', symbol: '£', rate: 0.00052 },
+  'Canada': { code: 'CAD', symbol: 'CA$', rate: 0.00090 },
+  'Other': { code: 'USD', symbol: '$', rate: 0.00066 }
+};
+
+function getUserCurrency() {
+  if (state.profile && state.profile.country && CURRENCY_RATES[state.profile.country]) {
+    return CURRENCY_RATES[state.profile.country];
+  }
+  return CURRENCY_RATES['Nigeria']; // Default
+}
+
+// 2. Override the ngn() helper to display in the user's currency
+const originalNgn = window.ngn;
+window.ngn = function(amountInNGN) {
+  const amt = Number(amountInNGN || 0);
+  const curr = getUserCurrency();
+  
+  if (curr.code === 'NGN') {
+    return '₦' + amt.toLocaleString();
+  }
+  
+  const converted = (amt * curr.rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return curr.symbol + converted;
+};
+
+// 3. Change the form labels dynamically when they go to the Post tab
+const originalNav = window.nav;
+window.nav = function(pane) {
+  originalNav(pane);
+  
+  if (pane === 'post') {
+    const curr = getUserCurrency();
+    if (curr.code !== 'NGN') {
+      // Update the labels in the Post forms
+      document.querySelectorAll('label').forEach(label => {
+        if (label.innerText.includes('₦')) {
+          label.innerText = label.innerText.replace('₦', curr.code);
+        }
+      });
+    }
+  }
+};
+
+// 4. Convert their local input BACK to NGN before saving to Firebase
+window.postGig = async function() {
+  if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval.');
+  const btn = $('postGigBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
+  
+  try {
+    let cover = ''; if ($('gCover').files[0]) cover = await uploadCloudinary($('gCover').files[0], 'gigs');
+    let portfolio = []; const pFiles = $('gPortfolio').files;
+    if (pFiles.length > 0) {
+      for(let i=0; i<Math.min(pFiles.length, 3); i++) { const url = await uploadCloudinary(pFiles[i], 'portfolio'); if(url) portfolio.push(url); }
+    }
+    
+    const curr = getUserCurrency();
+    const multiplier = curr.rate !== 1 ? (1 / curr.rate) : 1; // Reverse the rate to get NGN
+
+    const basicNGN = Number($('gBasic').value) * multiplier;
+    const stdNGN = Number($('gStd').value) * multiplier;
+    const premNGN = Number($('gPrem').value) * multiplier;
+    const isBoosted = $('gBoost').checked;
+
+    await db.collection('gigs').add({
+      title: $('gTitle').value.trim(), category: $('gCat').value, description: $('gDesc').value.trim(),
+      basic: Math.round(basicNGN), standard: Math.round(stdNGN), premium: Math.round(premNGN),
+      days: Number($('gDays').value), coverUrl: cover, portfolio: portfolio, freelancerId: state.user.uid,
+      freelancerName: (state.profile.first || '') + ' ' + (state.profile.last || ''),
+      boosted: isBoosted, badge: state.profile.badge || null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Gig published!'); await loadGigs(); nav('browse');
+    if (isBoosted) setTimeout(() => { fundEscrow('boost_' + Date.now(), 500, 'PLATFORM', 'Gig Boost Payment'); }, 1500);
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Publish Gig'; }
+};
+
+window.postJob = async function() {
+  if (!state.profile.ninApproved && !state.profile.isAdmin) return toast('Your NIN is pending approval.');
+  const btn = $('postJobBtn'); btn.disabled = true; btn.textContent = 'Posting…';
+  
+  try {
+    const curr = getUserCurrency();
+    const multiplier = curr.rate !== 1 ? (1 / curr.rate) : 1;
+    const budgetNGN = Number($('jBudget').value) * multiplier;
+
+    await db.collection('jobs').add({
+      title: $('jTitle').value.trim(), budget: Math.round(budgetNGN), days: Number($('jDays').value),
+      slots: Number($('jSlots').value), milestones: $('jMilestones').value, brief: $('jBrief').value.trim(), urgent: $('jUrgent').checked,
+      status: 'open', clientId: state.user.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Job posted!'); await loadMyThings();
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = 'Post Job'; }
+};
+  </script>
 </body>
 </html>
