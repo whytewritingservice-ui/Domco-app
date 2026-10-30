@@ -4077,6 +4077,206 @@ window.toggleIDFields = function() {
     foreignBox.classList.remove('hidden');
   }
 };
-     </script>   
+     </script>
+  <script>
+// ==========================================
+// INFLUENCER BATCH 1: DASHBOARD & AUTO-COMMISSION
+// ==========================================
+
+// 1. Show Influencer Dashboard on Profile
+const originalRenderProfileInf = window.renderProfile;
+window.renderProfile = async function() {
+  await originalRenderProfileInf();
+  
+  if (state.profile && state.profile.isInfluencer) {
+    const profilePane = document.getElementById('paneProfile');
+    // Check if it already exists to prevent duplicates
+    if (profilePane && !document.getElementById('influencerDash')) {
+      const dashHtml = `
+        <div id="influencerDash" class="card" style="margin-top:16px; border: 2px solid #FFD700; background: linear-gradient(to bottom, rgba(255,215,0,0.1), var(--card));">
+          <h3 style="color: #DAA520;">💰 Influencer Dashboard</h3>
+          <p class="muted" style="font-size:12px;">Your custom link:<br><strong style="color:var(--p);">https://whytewritingservice-ui.github.io/Domco-app/?ref=${state.profile.influencerCode}</strong></p>
+          
+          <div class="grid-2" style="margin-top:12px;">
+            <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
+              <div class="muted" style="font-size:10px;">Total Referrals</div>
+              <strong style="font-size:20px; color:var(--p);" id="infRefCount">...</strong>
+            </div>
+            <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
+              <div class="muted" style="font-size:10px;">Total Earnings</div>
+              <strong style="font-size:20px; color:var(--success);" id="infEarnings">...</strong>
+            </div>
+          </div>
+          <button class="btn btn-sm" style="margin-top:12px; background:#FFD700; color:#000;" onclick="openWithdraw()">Withdraw Earnings</button>
+        </div>
+      `;
+      // Insert above Bank Details
+      const bankHeader = Array.from(profilePane.querySelectorAll('h3')).find(el => el.textContent.includes('Bank Details'));
+      if(bankHeader) {
+        bankHeader.parentNode.insertBefore(document.createRange().createContextualFragment(dashHtml), bankHeader);
+      } else {
+        profilePane.insertAdjacentHTML('beforeend', dashHtml);
+      }
+      
+      // Fetch their stats
+      try {
+        const snap = await db.collection('users').where('referredBy', '==', state.profile.influencerCode).get();
+        if(document.getElementById('infRefCount')) document.getElementById('infRefCount').textContent = snap.size;
+        if(document.getElementById('infEarnings')) document.getElementById('infEarnings').textContent = ngn(state.profile.influencerBalance || 0);
+      } catch(e) { console.log(e); }
+    }
+  }
+};
+
+// 2. Automatically Award 15% Commission on Escrow Release
+const originalReleaseEscrowInf = window.releaseEscrow;
+window.releaseEscrow = async function(jobId) {
+  try {
+    const jobDoc = await db.collection('jobs').doc(jobId).get();
+    if(!jobDoc.exists) return;
+    const job = jobDoc.data();
+    
+    // Call original function to release funds
+    await originalReleaseEscrowInf(jobId);
+    
+    // Check for influencer referrals on either Client or Freelancer
+    const [cDoc, fDoc] = await Promise.all([
+      db.collection('users').doc(job.clientId).get(),
+      db.collection('users').doc(job.freelancerId).get()
+    ]);
+    
+    const referredCode = cDoc.data()?.referredBy || fDoc.data()?.referredBy;
+    
+    if (referredCode) {
+      const infSnap = await db.collection('users').where('influencerCode', '==', referredCode).get();
+      if (!infSnap.empty) {
+        const infId = infSnap.docs[0].id;
+        const platformFee = Number(job.amount) * 0.35;
+        const infCut = platformFee * 0.15; // 15% COMMISSION
+        
+        await db.collection('users').doc(infId).update({
+          influencerBalance: firebase.firestore.FieldValue.increment(infCut)
+        });
+        console.log('Influencer commission awarded:', infCut);
+      }
+    }
+  } catch(e) { console.log('Influencer payout error', e); }
+};
+  </script>
+  <script>
+// ==========================================
+// INFLUENCER BATCH 2: ADMIN CONTROLS
+// ==========================================
+
+// 1. Override the User List to add the "Make Influencer" button
+const originalRenderAdminUsersInf = window.renderAdminUsers;
+window.renderAdminUsers = function(users) {
+  const container = document.getElementById('aAllUsers');
+  if(!container) return;
+
+  container.innerHTML = users.length === 0 ? '<div class="empty">No users found</div>' : users.map(u => `
+    <div class="item">
+      <div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+      <div class="muted">${esc(u.email)} | ${u.role}</div>
+      <div class="muted">Wallet: ${ngn(u.walletBalance || 0)} ${u.isInfluencer ? '| <span style="color:#DAA520; font-weight:bold;">⭐ INFLUENCER</span>' : ''}</div>
+      
+      <div style="margin-top:12px; background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+        <label style="margin-top:0; font-size:11px;">Manage Badge</label>
+        <select onchange="updateUserBadge('${u.id}', this.value)" style="margin-bottom:8px; padding:8px; font-size:12px;">
+          <option value="" ${!u.badge && !u.isPremium ? 'selected' : ''}>No Badge</option>
+          <option value="gold" ${u.badge === 'gold' || u.isPremium ? 'selected' : ''}>✨ Gold</option>
+          <option value="diamond" ${u.badge === 'diamond' ? 'selected' : ''}>💎 Diamond</option>
+          <option value="elite" ${u.badge === 'elite' ? 'selected' : ''}>👑 Elite</option>
+        </select>
+        
+        ${!u.isInfluencer ? `<button class="btn btn-sm" style="background:#FFD700; color:#000; width:100%;" onclick="makeInfluencer('${u.id}', '${jsEsc(u.first)}')">⭐ Make Influencer</button>` : ''}
+      </div>
+
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" style="background:var(--success);" onclick="openCreditModal('${u.id}', '${jsEsc(u.first + ' ' + u.last)}')">💳 Credit Wallet</button>
+        <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${u.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button>
+        <button class="btn btn-sm" onclick="db.collection('users').doc('${u.id}').update({banned:false}).then(()=>{toast('Unbanned');loadAdmin()})">Unban</button>
+      </div>
+    </div>
+  `).join('');
+};
+
+// 2. Add the Influencer Manager Section to the Admin Dashboard
+const originalLoadAdminInf = window.loadAdmin;
+window.loadAdmin = async function() {
+  await originalLoadAdminInf();
+  
+  const adminPane = document.getElementById('paneAdmin');
+  if (adminPane && !document.getElementById('adminInfManager')) {
+    const infHtml = `
+      <div id="adminInfManager" class="card" style="margin-top:16px; border: 2px dashed #FFD700;">
+        <h3>💰 Manage Influencers</h3>
+        <p class="muted" style="font-size:12px;">Track influencer earnings here.</p>
+        <div id="influencerList" class="empty">Loading...</div>
+      </div>
+    `;
+    // Insert below the Ad/Contest Managers
+    adminPane.insertAdjacentHTML('beforeend', infHtml);
+    loadAdminInfluencers();
+  }
+};
+
+// 3. Fetch and Display Influencers
+async function loadAdminInfluencers() {
+  const list = document.getElementById('influencerList');
+  if(!list) return;
+  
+  try {
+    const snap = await db.collection('users').where('isInfluencer', '==', true).get();
+    if(snap.empty) { 
+      list.innerHTML = '<div class="empty">No influencers yet.</div>'; 
+      return; 
+    }
+    
+    list.innerHTML = snap.docs.map(doc => {
+      const u = doc.data();
+      return `
+        <div class="item" style="border-left: 4px solid #FFD700;">
+          <div style="font-weight:800;">${esc(u.first)} ${esc(u.last)}</div>
+          <div class="muted">Code: ${esc(u.influencerCode)}</div>
+          <div style="margin-top:4px;">Owed: <strong style="color:var(--success); font-size:16px;">${ngn(u.influencerBalance || 0)}</strong></div>
+          <button class="btn btn-sm" style="margin-top:8px; background:var(--success); width:100%;" onclick="payInfluencer('${doc.id}', ${u.influencerBalance || 0})">Pay & Reset Balance</button>
+        </div>
+      `;
+    }).join('');
+  } catch(e) { console.log(e); }
+}
+
+// 4. Create Influencer Function
+window.makeInfluencer = async function(uid, firstName) {
+  const cleanName = firstName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0,3);
+  const code = 'DOMCO-' + cleanName + Math.floor(1000 + Math.random() * 9000);
+  
+  if(!confirm(`Make this user an influencer with code: ${code}?`)) return;
+  try {
+    await db.collection('users').doc(uid).update({
+      isInfluencer: true,
+      influencerCode: code,
+      influencerBalance: 0
+    });
+    toast('Influencer created!');
+    loadAdmin();
+  } catch(e) { toast(e.message); }
+};
+
+// 5. Pay and Reset Function
+window.payInfluencer = async function(uid, amount) {
+  if(amount <= 0) return toast('No balance to pay');
+  if(!confirm(`Mark ₦${amount} as paid? This will reset their dashboard to ₦0.`)) return;
+  
+  try {
+    await db.collection('users').doc(uid).update({ influencerBalance: 0 });
+    toast('Influencer paid and balance reset!');
+    loadAdminInfluencers();
+  } catch(e) { 
+    toast(e.message); 
+  }
+};
+  </script>
 </body>
 </html>
