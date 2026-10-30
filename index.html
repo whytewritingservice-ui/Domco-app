@@ -4649,5 +4649,45 @@ window.viewGigDetails = function(gigId) {
   `);
 };
   </script>
+  <script>
+// ==========================================
+// ADMIN DIRECT PRIVATE MESSAGE BUTTON
+// ==========================================
+
+const originalRenderAdminUsersMsg = window.renderAdminUsers;
+window.renderAdminUsers = function(users) {
+  const container = document.getElementById('aAllUsers');
+  if(!container) return;
+
+  container.innerHTML = users.length === 0 ? '<div class="empty">No users found</div>' : users.map(u => `
+    <div class="item">
+      <div style="font-weight:800">${esc(u.first)} ${esc(u.last)}</div>
+      <div class="muted">${esc(u.email)} | ${u.role}</div>
+      <div class="muted">Wallet: ${ngn(u.walletBalance || 0)} ${u.isInfluencer ? '| <span style="color:#DAA520; font-weight:bold;">⭐ INFLUENCER</span>' : ''}</div>
+      
+      <div style="margin-top:12px; background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+        <label style="margin-top:0; font-size:11px;">Manage Badge</label>
+        <select onchange="updateUserBadge('${u.id}', this.value)" style="margin-bottom:8px; padding:8px; font-size:12px;">
+          <option value="" ${!u.badge && !u.isPremium ? 'selected' : ''}>No Badge</option>
+          <option value="gold" ${u.badge === 'gold' || u.isPremium ? 'selected' : ''}>✨ Gold</option>
+          <option value="diamond" ${u.badge === 'diamond' ? 'selected' : ''}>💎 Diamond</option>
+          <option value="elite" ${u.badge === 'elite' ? 'selected' : ''}>👑 Elite</option>
+        </select>
+        
+        ${!u.isInfluencer ? `<button class="btn btn-sm" style="background:#FFD700; color:#000; width:100%;" onclick="makeInfluencer('${u.id}', '${jsEsc(u.first)}')">⭐ Make Influencer</button>` : ''}
+      </div>
+
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+        <!-- NEW BUTTON HERE 👇 -->
+        <button class="btn btn-sm" style="background:var(--b); color:#fff;" onclick="startChat('${u.id}', '${jsEsc(u.first + ' ' + u.last)}')">💬 Message User</button>
+        
+        <button class="btn btn-sm" style="background:var(--success);" onclick="openCreditModal('${u.id}', '${jsEsc(u.first + ' ' + u.last)}')">💳 Credit Wallet</button>
+        <button class="btn btn-sm btn-danger" onclick="db.collection('users').doc('${u.id}').update({banned:true}).then(()=>{toast('Banned');loadAdmin()})">Ban</button>
+        <button class="btn btn-sm" onclick="db.collection('users').doc('${u.id}').update({banned:false}).then(()=>{toast('Unbanned');loadAdmin()})">Unban</button>
+      </div>
+    </div>
+  `).join('');
+};
+  </script>
 </body>
 </html>
