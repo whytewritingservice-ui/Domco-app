@@ -4740,5 +4740,16 @@ window.removeInfluencer = async function(uid) {
   } catch(e) { toast(e.message); }
 };
   </script>
+  <script>
+// ==========================================
+// FINAL ASYNC ERROR TRAP (OVERRIDE)
+// ==========================================
+window.addEventListener('unhandledrejection', function(event) {
+  // Only alert if logged in as admin
+  if (typeof auth !== 'undefined' && auth.currentUser && auth.currentUser.email === 'whytewritingservice@gmail.com') {
+    alert("🚨 ASYNC CRASH ALERT!\n\n" + (event.reason?.message || event.reason));
+  }
+});
+  </script>
 </body>
 </html>
