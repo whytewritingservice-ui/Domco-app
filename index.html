@@ -4751,5 +4751,61 @@ window.addEventListener('unhandledrejection', function(event) {
   }
 });
   </script>
+  <script>
+// ==========================================
+// BULLETPROOF CONTEST DELETE OVERRIDE
+// ==========================================
+
+// 1. The Delete Function
+window.deleteContestNow = async function() {
+  if(!confirm('🚨 Are you absolutely sure you want to DELETE this contest? This cannot be undone.')) return;
+  
+  try {
+    await db.collection('settings').doc('contest').delete();
+    toast('✅ Contest deleted completely.');
+    
+    // Hide it from the Arena instantly
+    const container = document.getElementById('dynamicContestContainer');
+    if (container) container.innerHTML = '';
+    
+    closeModal();
+    if (typeof loadAdmin === 'function') loadAdmin(); // Refresh admin dashboard
+  } catch(e) {
+    toast('Error deleting: ' + e.message);
+  }
+};
+
+// 2. The Settings Popup (With the Delete Button)
+window.openContestSettings = async function() {
+  const doc = await db.collection('settings').doc('contest').get();
+  const c = doc.exists ? doc.data() : { title: '', description: '', prize: 0, deadline: '', active: false };
+
+  openModal(`
+    <h2>Manage Contest</h2>
+    <label>Title</label>
+    <input id="cTitle" value="${esc(c.title || 'Weekly Design Contest')}">
+    
+    <label>Description</label>
+    <textarea id="cDesc" rows="2">${esc(c.description || 'Design a logo for a local coffee shop.')}</textarea>
+    
+    <label>Prize (₦)</label>
+    <input id="cPrize" type="number" value="${c.prize || 10000}">
+    
+    <label>Deadline Text</label>
+    <input id="cDeadline" value="${esc(c.deadline || 'Ends in 2 days')}">
+    
+    <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+      <input type="checkbox" id="cActive" ${c.active ? 'checked' : ''} style="width:auto;"> 🟢 Contest is Active (Show in Arena)
+    </label>
+    
+    <button class="btn" style="background:var(--success); margin-bottom:8px;" onclick="saveContestSettings()">Save Contest</button>
+    
+    <!-- THE DELETE BUTTON 👇 -->
+    <button class="btn btn-danger" style="margin-bottom:8px;" onclick="deleteContestNow()">🗑️ Delete Contest Completely</button>
+    
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+};
+  </script>
 </body>
 </html>
