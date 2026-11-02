@@ -4898,6 +4898,109 @@ window.deleteContestNow = async function() {
     toast('Error deleting: ' + e.message);
   }
 };
-  </script>                                                                                                                    
+  </script> 
+  <script>
+// ==========================================
+// FINAL FIX: ARENA CONTEST MANAGER & DISPUTES
+// ==========================================
+
+// 1. Inject a "Manage Contest" button into the Arena for Admin only
+const originalNavArena = window.nav;
+window.nav = function(pane) {
+  originalNavArena(pane);
+  
+  if (pane === 'arena') {
+    const arenaPane = document.getElementById('paneArena');
+    // If user is admin and button doesn't exist yet
+    if (arenaPane && state.profile && state.profile.isAdmin && !document.getElementById('arenaContestBtn')) {
+      const btnDiv = document.createElement('div');
+      btnDiv.id = 'arenaContestBtn';
+      btnDiv.innerHTML = `<button class="btn btn-sm" style="background:var(--warn); color:#000; margin-bottom:12px; width:100%; font-weight:bold;" onclick="openContestSettings()">⚙️ Manage Contest (Admin Only)</button>`;
+      arenaPane.insertBefore(btnDiv, arenaPane.firstChild);
+    }
+  }
+};
+
+// 2. Re-define the Settings Popup (Add/Edit/Delete)
+window.openContestSettings = async function() {
+  const doc = await db.collection('settings').doc('contest').get();
+  const c = doc.exists ? doc.data() : { title: '', description: '', prize: 0, deadline: '', active: false };
+
+  openModal(`
+    <h2>Manage Contest</h2>
+    <label>Title</label>
+    <input id="cTitle" value="${esc(c.title || 'Weekly Design Contest')}">
+    
+    <label>Description</label>
+    <textarea id="cDesc" rows="2">${esc(c.description || 'Design a logo for a local coffee shop.')}</textarea>
+    
+    <label>Prize (₦)</label>
+    <input id="cPrize" type="number" value="${c.prize || 10000}">
+    
+    <label>Deadline Text</label>
+    <input id="cDeadline" value="${esc(c.deadline || 'Ends in 2 days')}">
+    
+    <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+      <input type="checkbox" id="cActive" ${c.active ? 'checked' : ''} style="width:auto;"> 🟢 Contest is Active (Show in Arena)
+    </label>
+    
+    <button class="btn" style="background:var(--success); margin-bottom:8px;" onclick="saveContestSettings()">Save Contest</button>
+    <button class="btn btn-danger" style="margin-bottom:8px;" onclick="deleteContestNow()">🗑️ Delete Contest Completely</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+};
+
+window.saveContestSettings = async function() {
+  const data = {
+    title: document.getElementById('cTitle').value,
+    description: document.getElementById('cDesc').value,
+    prize: Number(document.getElementById('cPrize').value),
+    deadline: document.getElementById('cDeadline').value,
+    active: document.getElementById('cActive').checked
+  };
+  try {
+    await db.collection('settings').doc('contest').set(data, { merge: true });
+    closeModal(); toast('Contest updated!');
+    if (typeof loadDynamicContest === 'function') loadDynamicContest(); 
+  } catch(e) { toast(e.message); }
+};
+
+window.deleteContestNow = async function() {
+  if(!confirm('🚨 Delete this contest?')) return;
+  try {
+    await db.collection('settings').doc('contest').delete();
+    toast('Contest deleted.');
+    const container = document.getElementById('dynamicContestContainer');
+    if (container) container.innerHTML = '';
+    closeModal();
+  } catch(e) { toast(e.message); }
+};
+
+// 3. Fix the Dispute Center to ensure Refund/Release buttons show up
+const originalLoadAdminDisputes = window.loadAdmin;
+window.loadAdmin = async function() {
+  await originalLoadAdminDisputes();
+  
+  try {
+    const jobsSnap = await db.collection('jobs').get(); 
+    const activeJobs = jobsSnap.docs.filter(d => ['funded', 'delivered', 'disputed', 'releasing', 'pending_funding'].includes(d.data().status));
+    
+    const disputesEl = document.getElementById('aDisputes');
+    if (disputesEl) {
+      disputesEl.innerHTML = activeJobs.length === 0 ? '<div class="empty">No active jobs</div>' : activeJobs.map(d => { 
+        const j = d.data(); 
+        return `<div class="item">
+          <div style="font-weight:800">${esc(j.title)}</div>
+          <div class="muted">Status: ${j.status} | Amount: ${ngn(j.amount || j.budget)}</div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="btn btn-sm" style="background:var(--p);" onclick="openDisputeSlider('${d.id}', ${j.amount || j.budget}, '${jsEsc(j.title)}')">⚖️ Resolve (Split)</button>
+            <button class="btn btn-sm btn-danger" onclick="db.collection('jobs').doc('${d.id}').update({status:'cancelled'}).then(()=>{toast('Refunded');loadAdmin()})">Refund</button>
+          </div>
+        </div>`; 
+      }).join('');
+    }
+  } catch(e) { console.log('Dispute render error', e); }
+};
+  </script>
 </body>
 </html>
